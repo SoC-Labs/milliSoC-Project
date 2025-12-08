@@ -1,0 +1,18 @@
+[submodule "dspsoc_tech"]
+	path = dspsoc_tech
+	url = https://git.soton.ac.uk/soclabs/dspsoc/dspsoc_tech.git
+[submodule "soctools_flow"]
+	path = soctools_flow
+	url = https://git.soton.ac.uk/soclabs/soctools_flow.git
+[submodule "rtl_primitives_tech"]
+	path = rtl_primitives_tech
+	url = https://git.soton.ac.uk/soclabs/rtl_primitives_tech.git
+[submodule "generic_lib_tech"]
+	path = generic_lib_tech
+	url = https://git.soton.ac.uk/soclabs/generic_lib_tech.git
+[submodule "asic_library_tech"]
+	path = asic_library_tech
+	url = https://git.soton.ac.uk/soclabs/asic_library_tech.git
+[submodule "asic_flow"]
+	path = asic_flow
+	url = https://git.soton.ac.uk/soclabs/asic_flow.git

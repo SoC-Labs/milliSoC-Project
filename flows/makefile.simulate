@@ -1,0 +1,152 @@
+#-----------------------------------------------------------------------------
+# dspsoC Simulation Makefile 
+# A joint work commissioned on behalf of SoC Labs, under Arm Academic Access license.
+#
+# Contributors
+#
+# David Mapstone (d.a.mapstone@soton.ac.uk)
+# Daniel Newbrook (d.newbrook@soton.ac.uk)
+#
+# Copyright (C) 2021-4, SoC Labs (www.soclabs.org)
+#-----------------------------------------------------------------------------
+
+# MTI options
+MTI_VC_OPTIONS    = +acc
+MTI_VC_OPTIONS    += -suppress 2892
+MTI_VC_OPTIONS    += -f $(TBENCH_VC) 
+MTI_RUN_OPTIONS   = -voptargs=+acc
+
+# VCS options
+VCS_OPTIONS    =  -msg_config=$(SOCLABS_PROJECT_DIR)/verif/testbench/vcs_lint_config +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=all,noTMR,noVCDE -debug -debug_access+all 
+VCS_SIM_OPTION = +vcs+lic+wait +vcs+flush+log -assert nopostproc
+VCS_VC_OPTIONS = -f $(TBENCH_VC) 
+
+# ------- Cocotb Variables -----------
+# Convert Simulator Name for Cocotb
+COCOTB_SIMULATOR ?= questa
+
+ifeq ($(SIMULATOR),mti)
+	COCOTB_SIMULATOR := questa
+else ifeq ($(SIMULATOR),xm)
+	COCOTB_SIMULATOR := xcelium
+else ifeq ($(SIMULATOR),vcs)
+	COCOTB_SIMULATOR := vcs
+endif
+
+# Cocotb GUI Variable
+GUI ?= 0
+
+# Cocotb Test Location
+COCOTB_TEST_DIR := $(SOCLABS_PROJECT_DIR)/verif/cocotb
+
+# Cocotb Scratch Directory
+COCOTB_DIR := $(SIM_TOP_DIR)/cocotb
+COCOTB_SCRATCH_DIR := $(COCOTB_DIR)/scratch
+
+# Filelist for Cocotb 
+MAKEFILE_FILELIST     := $(COCOTB_DIR)/makefile.flist
+
+MODULE ?= test_adp
+
+# Create a List of PHONY Targets
+.PHONY: compile_$(SIMULATOR) run_$(SIMULATOR) sim_$(SIMULATOR)
+
+# ------- Simulator redirect -----------
+
+compile: compile_$(SIMULATOR)
+
+run: run_$(SIMULATOR)
+
+sim: sim_$(SIMULATOR)
+
+# Preload IMEM in Simulation
+compile_mti: dspsoC_DEFINES += IMEM_0_RAM_PRELOAD
+compile_vcs: dspsoC_DEFINES += IMEM_0_RAM_PRELOAD
+compile_xm:  dspsoC_DEFINES += IMEM_0_RAM_PRELOAD
+
+
+# Generate verilog .vc filelist from flists
+flist_vfiles_dspsoc: gen_defs
+	echo $(FLIST_INCLUDES)
+	@if [ ! -d $(SIM_BUILD_DIR) ] ; then \
+	  mkdir -p $(SIM_BUILD_DIR); \
+	fi
+	@if [ ! -d $(SIM_BUILD_DIR)/logs ] ; then \
+	  mkdir -p $(SIM_BUILD_DIR)/logs; \
+	fi
+	@cd $(SIM_BUILD_DIR); python $(SOCLABS_SOCTOOLS_FLOW_DIR)/bin/filelist_compile.py -f $(TBENCH_VC) -a -i $(FLIST_INCLUDES) -v -o tbench.vc
+
+
+# ------- VCS -----------
+
+# Compile RTL
+compile_vcs : gen_defs  flist_vfiles_dspsoc
+	cd $(SIM_BUILD_DIR); vcs $(VCS_OPTIONS) -f tbench.vc  -kdb $(DEFINES_VC)  | tee compile_vcs.log
+
+
+# Run simulation in batch mode
+run_vcs : testcode 
+	@echo quit > $(SIM_DIR)/quit.do
+	@if [ ! -d $(SIM_DIR)/logs ] ; then \
+	  mkdir -p $(SIM_DIR)/logs; \
+	fi
+	@if [ $(ASIC_MEMS) -e yes] ; then \
+		cp $(SOCLABS_PROJECT_DIR)/memories/dspsoc/bootrom/bootrom_emulation.rcf $(SIM_DIR)/; \
+	fi
+	@if [ -f $(TESTCODES_DIR)/$(TESTNAME)/adp.cmd ] ; then \
+		cp $(TESTCODES_DIR)/$(TESTNAME)/adp.cmd $(SIM_DIR)/; \
+	fi
+	cd $(SIM_DIR); $(SIM_BUILD_DIR)/simv $(VCS_SIM_OPTION) -define ADP_FILE=adp.cmd < quit.do | tee logs/run_$(TESTNAME).log ;
+
+# Run simulation in interactive mode
+sim_vcs : code 
+	@if [ ! -d $(SIM_DIR)/logs ] ; then \
+	  mkdir -p $(SIM_DIR)/logs; \
+	fi
+	cd $(SIM_DIR); $(SIM_BUILD_DIR)/simv -gui +vcs+lic+wait +vcs+flush+log &
+
+# ------- MTI -----------
+
+# Compile RTL
+compile_mti :  gen_defs flist_vfiles_dspsoc lib_mti
+	cd $(SIM_BUILD_DIR); vlog -incr -lint +v2k  -f tbench.vc $(DEFINES_VC) | tee compile_mti.log
+
+# Run simulation in batch mode
+run_mti : code compile_mti
+	@echo "run -all" > $(SIM_DIR)/run.tcl.tmp
+	@echo "quit -f" >> $(SIM_DIR)/run.tcl.tmp
+	@mv  $(SIM_DIR)/run.tcl.tmp $(SIM_DIR)/run.tcl
+	cd $(SIM_DIR); vsim $(MTI_RUN_OPTIONS) -c $(TB_TOP) -do run.tcl | tee $(SIM_DIR)/logs/run_$(TESTNAME).log ;
+
+run_mti_to:
+	timeout 2s $(MAKE) run_mti >> /dev/null 2>&1 
+	
+run_mti_wrap:
+	$(MAKE) run_mti_to
+	
+# Run simulation in interactive mode
+sim_mti : code compile_mti
+	cd $(SIM_DIR); vsim $(MTI_RUN_OPTIONS) -gui $(TB_TOP) &
+
+# Create work directory
+lib_mti :
+	@if [ -d $(SIM_DIR)/work ] ; then \
+          true ; \
+	else \
+	  vlib  $(SIM_DIR)/work; \
+	fi
+
+# Generate Make filelist from flists
+flist_makefile_dspsoc: gen_defs
+	@mkdir -p $(COCOTB_DIR)
+	@(cd $(COCOTB_DIR); \
+	$(SOCLABS_SOCTOOLS_FLOW_DIR)/bin/filelist_compile.py -m -f $(DESIGN_VC) -o $(MAKEFILE_FILELIST);)
+
+run_cocotb: DEFINES_VC += COCOTB_SIM
+run_cocotb: flist_makefile_dspsoc
+	@mkdir -p $(SIM_DIR)
+	@cd $(SIM_DIR); $(MAKE) -C $(SOCLABS_PROJECT_DIR)/verif/cocotb clean SIM_BUILD=$(COCOTB_SCRATCH_DIR)
+	@cd $(SIM_DIR); $(MAKE) -C $(SOCLABS_PROJECT_DIR)/verif/cocotb sim MODULE=$(MODULE) SIM=$(COCOTB_SIMULATOR) TESTCASE=$(TESTNAME) GUI=$(GUI) SIM_BUILD=$(COCOTB_SCRATCH_DIR) ACCELERATOR=$(ACCELERATOR)
+
+sim_cocotb: GUI=1
+sim_cocotb: run_cocotb
