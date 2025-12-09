@@ -1,3 +1,6 @@
+include $(SOCLABS_PROJECT_DIR)/dspsoc.config
+export CORTEX_M7_LOGICAL_DIR
+
 # Directory to put simulation files
 SIM_TOP_DIR ?= $(SOCLABS_PROJECT_DIR)/simulate/sim
 SIM_DIR      = $(SIM_TOP_DIR)/$(TESTNAME)
@@ -16,7 +19,7 @@ export TESTCODES_BUILD_DIR
 DEFINES_DIR := $(SOCLABS_PROJECT_DIR)/top/logical/
 DEFINES_FILE := $(DEFINES_DIR)/gen_defines.v
 
-DSPSOC_DEFINES = DSPSOC
+DSPSOC_DEFINES = DSPSOC CM7_TARMAC CM7_TARMAC_DPI PMU_PWR_DOWN  OVL_INIT_MSG 
 #------------------------------------------
 # - Include Makefiles for Specific Flows
 #------------------------------------------

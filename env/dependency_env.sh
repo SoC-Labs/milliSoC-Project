@@ -31,7 +31,7 @@ export SOCLABS_SOCDEBUG_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/socdeb
 export SOCLABS_SLCOREM0_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/slcorem0_tech"
 
 # SLDMA-230
-export SOCLABS_SLDMA230_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/sldma230_tech"
+export SOCLABS_SLDMA230_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/logical/sldma230_tech"
 export SOCLABS_SLDMA350_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/sldma350_tech"
 
 # Primtives

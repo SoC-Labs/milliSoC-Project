@@ -17,7 +17,7 @@ MTI_VC_OPTIONS    += -f $(TBENCH_VC)
 MTI_RUN_OPTIONS   = -voptargs=+acc
 
 # VCS options
-VCS_OPTIONS    =  -msg_config=$(SOCLABS_PROJECT_DIR)/verif/testbench/vcs_lint_config +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=all,noTMR,noVCDE -debug -debug_access+all 
+VCS_OPTIONS    = +define+OVL_VERILOG +define+ARM_ASSERT_ON -msg_config=$(SOCLABS_PROJECT_DIR)/verif/testbench/vcs_lint_config +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=all,noTMR,noVCDE -debug -debug_access+all 
 VCS_SIM_OPTION = +vcs+lic+wait +vcs+flush+log -assert nopostproc
 VCS_VC_OPTIONS = -f $(TBENCH_VC) 
 
