@@ -17,7 +17,7 @@ MTI_VC_OPTIONS    += -f $(TBENCH_VC)
 MTI_RUN_OPTIONS   = -voptargs=+acc
 
 # VCS options
-VCS_OPTIONS    = +define+OVL_VERILOG +define+ARM_ASSERT_ON -msg_config=$(SOCLABS_PROJECT_DIR)/verif/testbench/vcs_lint_config +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=all,noTMR,noVCDE -debug -debug_access+all 
+VCS_OPTIONS    = -sverilog $(CORTEX_M7_LOGICAL_DIR)/testbench/shared/tarmac/lib64/cm7_tarmac_dpi.so +define+CM7_TARMAC +define+CM7_TARMAC_DPI +define+OVL_VERILOG +define+ARM_ASSERT_ON -msg_config=$(SOCLABS_PROJECT_DIR)/verif/testbench/vcs_lint_config +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=all,noTMR,noVCDE -debug -debug_access+all 
 VCS_SIM_OPTION = +vcs+lic+wait +vcs+flush+log -assert nopostproc
 VCS_VC_OPTIONS = -f $(TBENCH_VC) 
 
@@ -80,7 +80,7 @@ flist_vfiles_dspsoc: gen_defs
 # ------- VCS -----------
 
 # Compile RTL
-compile_vcs : gen_defs  flist_vfiles_dspsoc
+compile_vcs : bootrom gen_defs  flist_vfiles_dspsoc
 	cd $(SIM_BUILD_DIR); vcs $(VCS_OPTIONS) -f tbench.vc  -kdb $(DEFINES_VC)  | tee compile_vcs.log
 
 
@@ -108,7 +108,7 @@ sim_vcs : code
 # ------- MTI -----------
 
 # Compile RTL
-compile_mti :  gen_defs flist_vfiles_dspsoc lib_mti
+compile_mti : bootrom gen_defs flist_vfiles_dspsoc lib_mti
 	cd $(SIM_BUILD_DIR); vlog -incr -lint +v2k  -f tbench.vc $(DEFINES_VC) | tee compile_mti.log
 
 # Run simulation in batch mode

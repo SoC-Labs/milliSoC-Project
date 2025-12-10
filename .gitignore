@@ -4,3 +4,8 @@ simulate
 
 top/logical/gen_defines.v
 
+CheckResults.log
+CoherencyCheckConfiguration.config
+.metadata
+
+system/src/bootrom

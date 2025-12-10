@@ -4,3 +4,5 @@ $(SOCLABS_PROJECT_DIR)/top/logical/dspsoc_top.v
 
 -f $(SOCLABS_DSPSOC_TECH_DIR)/flist/dspsoc_BEHAV.flist
 -f $(SOCLABS_PROJECT_DIR)/flist/dspsoc_tb.flist
+
+$(SOCLABS_PROJECT_DIR)/system/src/bootrom/verilog/bootrom.sv

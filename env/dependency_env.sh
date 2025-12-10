@@ -27,11 +27,13 @@ export SOCLABS_DSPSOC_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech"
 # SoCDebug
 export SOCLABS_SOCDEBUG_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/socdebug_tech"
 
-# SLCore-M0
-export SOCLABS_SLCOREM0_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/slcorem0_tech"
+# SL AHB QPSPI
+export SOCLABS_AHB_QSPI_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/logical/ahb_qspi"
 
 # SLDMA-230
 export SOCLABS_SLDMA230_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/logical/sldma230_tech"
+
+# SLDAM-350
 export SOCLABS_SLDMA350_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/sldma350_tech"
 
 # Primtives

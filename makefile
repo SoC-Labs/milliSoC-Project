@@ -19,7 +19,14 @@ export TESTCODES_BUILD_DIR
 DEFINES_DIR := $(SOCLABS_PROJECT_DIR)/top/logical/
 DEFINES_FILE := $(DEFINES_DIR)/gen_defines.v
 
-DSPSOC_DEFINES = DSPSOC CM7_TARMAC CM7_TARMAC_DPI PMU_PWR_DOWN  OVL_INIT_MSG 
+DSPSOC_DEFINES = DSPSOC  PMU_PWR_DOWN  OVL_INIT_MSG 
+
+TOOL_CHAIN = ds5
+export TOOL_CHAIN
+
+# Default test
+TESTNAME ?= hello
+
 #------------------------------------------
 # - Include Makefiles for Specific Flows
 #------------------------------------------
@@ -49,3 +56,5 @@ gen_defs:
 	@mkdir -p $(DEFINES_DIR)
 	@$(SOCLABS_SOCTOOLS_FLOW_DIR)/bin/defines_compile.py -d $(DSPSOC_DEFINES) -o $(DEFINES_FILE)
 
+get_flash_model:
+	make -C $(SOCLABS_AHB_QSPI_DIR) get_flash_model
