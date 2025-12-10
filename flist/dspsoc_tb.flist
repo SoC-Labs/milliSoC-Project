@@ -1,7 +1,0 @@
-
-
-$(SOCLABS_PROJECT_DIR)/verif/testbench/dspsoc_tb.v
-$(SOCLABS_PROJECT_DIR)/verif/control/dspsoc_clkreset.v
-$(SOCLABS_PROJECT_DIR)/verif/trace/dspsoc_axi_stream_io_8_rxd_to_file.v
-$(SOCLABS_PROJECT_DIR)/verif/trace/extio8x4_axis_target.v
-$(SOCLABS_PROJECT_DIR)/verif/trace/extio8x4_tfsm.v

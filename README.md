@@ -1,4 +1,4 @@
-# DSPSoC Project
+# MilliSoC Project
 
 
 

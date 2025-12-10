@@ -36,7 +36,7 @@
 //-----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
-module dspsoc_clkreset(
+module millisoc_clkreset(
   output wire CLK,
   output wire NRST,
   output wire NRST_early,

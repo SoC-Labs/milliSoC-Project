@@ -1,6 +1,6 @@
 
 
-module dspsoc_top(
+module millisoc_top(
     input  wire       CLK,      // System clock
     input  wire       nPORST,    // Active low power-on reset
 
@@ -15,7 +15,7 @@ module dspsoc_top(
 
 );
 
-dspsoc_chip_pads u_dspsoc_chip_pads(
+millisoc_chip_pads u_millisoc_chip_pads(
     .CLK    (CLK    ),
     .nPORST (nPORST ),
     .QSPI_SCLK(QSPI_SCLK),

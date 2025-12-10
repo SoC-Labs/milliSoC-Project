@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module dspsoc_tb();
+module millisoc_tb();
 
 wire CLK;
 wire nPORST;
@@ -10,7 +10,7 @@ wire [3:0]   EXTIO_IO;
 wire         EXTIO_IOREQ1;
 wire         EXTIO_IOREQ2;
 wire         EXTIO_IOACK;
-dspsoc_top u_dspsoc(
+millisoc_top u_millisoc(
     .CLK(CLK),
     .nPORST(nPORST),
     .QSPI_SCLK(QSPI_SCLK),
@@ -22,7 +22,7 @@ dspsoc_top u_dspsoc(
     .EXTIO_IOACK(EXTIO_IOACK)
 );
 
-dspsoc_clkreset u_dspsoc_clkreset(
+millisoc_clkreset u_millisoc_clkreset(
     .CLK(CLK),
     .NRST(nPORST)
 );
@@ -108,10 +108,10 @@ assign ioreq2 = EXTIO_IOREQ2;
 assign EXTIO_IOACK = ioack;
 assign axis_rx1_tvalid = 1'b0;
 
-  dspsoc_axi_stream_io_8_rxd_to_file#(
+  millisoc_axi_stream_io_8_rxd_to_file#(
     .RXDFILENAME("logs/extadp_out.log"),
     .VERBOSE(1)
-  ) u_dspsoc_axi_stream_io_stream_adp_rxd_to_file (
+  ) u_millisoc_axi_stream_io_stream_adp_rxd_to_file (
     .aclk         (CLK),
     .aresetn      (nPORST),
     .eof_received (test_done),
@@ -120,10 +120,10 @@ assign axis_rx1_tvalid = 1'b0;
     .rxd8_data    (axis_tx0_tdata8)
   );
 
-  dspsoc_axi_stream_io_8_rxd_to_file#(
+  millisoc_axi_stream_io_8_rxd_to_file#(
     .RXDFILENAME("logs/extdat_out.log"),
     .VERBOSE(0)
-  ) u_dspsoc_axi_stream_io_stream_dat_rxd_to_file (
+  ) u_millisoc_axi_stream_io_stream_dat_rxd_to_file (
     .aclk         (CLK),
     .aresetn      (nPORST),
     .eof_received (),

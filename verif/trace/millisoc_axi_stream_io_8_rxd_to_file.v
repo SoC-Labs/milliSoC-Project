@@ -15,7 +15,7 @@
 //-----------------------------------------------------------------------------
 
 
-module dspsoc_axi_stream_io_8_rxd_to_file
+module millisoc_axi_stream_io_8_rxd_to_file
   #(parameter RXDFILENAME = "rxd.log",
     parameter VERBOSE = 0)
   (

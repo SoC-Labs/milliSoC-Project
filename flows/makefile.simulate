@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# dspsoC Simulation Makefile 
+# MilliSoC Simulation Makefile 
 # A joint work commissioned on behalf of SoC Labs, under Arm Academic Access license.
 #
 # Contributors
@@ -60,13 +60,13 @@ run: run_$(SIMULATOR)
 sim: sim_$(SIMULATOR)
 
 # Preload IMEM in Simulation
-compile_mti: dspsoC_DEFINES += IMEM_0_RAM_PRELOAD
-compile_vcs: dspsoC_DEFINES += IMEM_0_RAM_PRELOAD
-compile_xm:  dspsoC_DEFINES += IMEM_0_RAM_PRELOAD
+compile_mti: MILLISOC_DEFINES += IMEM_0_RAM_PRELOAD
+compile_vcs: MILLISOC_DEFINES += IMEM_0_RAM_PRELOAD
+compile_xm:  MILLISOC_DEFINES += IMEM_0_RAM_PRELOAD
 
 
 # Generate verilog .vc filelist from flists
-flist_vfiles_dspsoc: gen_defs
+flist_vfiles_millisoc: gen_defs
 	echo $(FLIST_INCLUDES)
 	@if [ ! -d $(SIM_BUILD_DIR) ] ; then \
 	  mkdir -p $(SIM_BUILD_DIR); \
@@ -80,7 +80,7 @@ flist_vfiles_dspsoc: gen_defs
 # ------- VCS -----------
 
 # Compile RTL
-compile_vcs : bootrom gen_defs  flist_vfiles_dspsoc
+compile_vcs : bootrom gen_defs  flist_vfiles_millisoc
 	cd $(SIM_BUILD_DIR); vcs $(VCS_OPTIONS) -f tbench.vc  -kdb $(DEFINES_VC)  | tee compile_vcs.log
 
 
@@ -91,7 +91,7 @@ run_vcs : testcode
 	  mkdir -p $(SIM_DIR)/logs; \
 	fi
 	@if [ $(ASIC_MEMS) -e yes] ; then \
-		cp $(SOCLABS_PROJECT_DIR)/memories/dspsoc/bootrom/bootrom_emulation.rcf $(SIM_DIR)/; \
+		cp $(SOCLABS_PROJECT_DIR)/memories/millisoc/bootrom/bootrom_emulation.rcf $(SIM_DIR)/; \
 	fi
 	@if [ -f $(TESTCODES_DIR)/$(TESTNAME)/adp.cmd ] ; then \
 		cp $(TESTCODES_DIR)/$(TESTNAME)/adp.cmd $(SIM_DIR)/; \
@@ -108,7 +108,7 @@ sim_vcs : code
 # ------- MTI -----------
 
 # Compile RTL
-compile_mti : bootrom gen_defs flist_vfiles_dspsoc lib_mti
+compile_mti : bootrom gen_defs flist_vfiles_millisoc lib_mti
 	cd $(SIM_BUILD_DIR); vlog -incr -lint +v2k  -f tbench.vc $(DEFINES_VC) | tee compile_mti.log
 
 # Run simulation in batch mode
@@ -137,13 +137,13 @@ lib_mti :
 	fi
 
 # Generate Make filelist from flists
-flist_makefile_dspsoc: gen_defs
+flist_makefile_millisoc: gen_defs
 	@mkdir -p $(COCOTB_DIR)
 	@(cd $(COCOTB_DIR); \
 	$(SOCLABS_SOCTOOLS_FLOW_DIR)/bin/filelist_compile.py -m -f $(DESIGN_VC) -o $(MAKEFILE_FILELIST);)
 
 run_cocotb: DEFINES_VC += COCOTB_SIM
-run_cocotb: flist_makefile_dspsoc
+run_cocotb: flist_makefile_millisoc
 	@mkdir -p $(SIM_DIR)
 	@cd $(SIM_DIR); $(MAKE) -C $(SOCLABS_PROJECT_DIR)/verif/cocotb clean SIM_BUILD=$(COCOTB_SCRATCH_DIR)
 	@cd $(SIM_DIR); $(MAKE) -C $(SOCLABS_PROJECT_DIR)/verif/cocotb sim MODULE=$(MODULE) SIM=$(COCOTB_SIMULATOR) TESTCASE=$(TESTNAME) GUI=$(GUI) SIM_BUILD=$(COCOTB_SCRATCH_DIR) ACCELERATOR=$(ACCELERATOR)

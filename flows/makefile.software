@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-# DSP SoC Software Compilation Makefile 
+# MILLI SoC Software Compilation Makefile 
 # A joint work commissioned on behalf of SoC Labs, under Arm Academic Access license.
 #
 # Contributors
@@ -10,7 +10,7 @@
 #-----------------------------------------------------------------------------
 
 # Software Directory
-DSPSOC_SW_DIR     ?= $(SOCLABS_DSPSOC_TECH_DIR)/software
+MILLISOC_SW_DIR     ?= $(SOCLABS_MILLISOC_TECH_DIR)/software
 
 # Software make options
 # - Pass onto the software makefile to define targetted CPU type
@@ -21,7 +21,7 @@ SW_MAKE_OPTIONS = CPU_PRODUCT=CORTEX_M0 TOOL_CHAIN=$(TOOL_CHAIN)
 # Boot Loader image
 BOOTLOADER        ?= bootloader
 BOOTROM_ADDRW     ?= 9
-BOOTROM_HEX       ?= $(SOCLABS_DSPSOC_TECH_DIR)/software/src/bootloader/$(BOOTLOADER).hex
+BOOTROM_HEX       ?= $(SOCLABS_MILLISOC_TECH_DIR)/software/src/bootloader/$(BOOTLOADER).hex
 BOOTROM_BUILD_DIR ?= $(SOCLABS_PROJECT_DIR)/system/src/bootrom
 
 # code target is used by other simulation targets (e.g. run_mti, sim_mti)
@@ -43,7 +43,7 @@ BOOTROM_SIM_HEX := $(BOOTROM_SIM_DIR)/$(BOOTLOADER).hex
 
 # Intermediate files
 BOOTLOADER_HEX := $(TESTCODES_DIR)/$(BOOTLOADER)/$(BOOTLOADER).hex
-BOOTROM_GEN_PY := $(SOCLABS_DSPSOC_TECH_DIR)/software/src/bootloader/bootrom_gen.py
+BOOTROM_GEN_PY := $(SOCLABS_MILLISOC_TECH_DIR)/software/src/bootloader/bootrom_gen.py
 
 bootrom: $(BOOTROM_SV) $(BOOTROM_BIN) $(BOOTROM_SIM_HEX)
 
@@ -148,7 +148,7 @@ endif
 # Compile debugtester
 # Note : The use of ls after compile allows the computing server to sync up
 debugtester:
-	@(cd $(DSPSOC_SW_DIR)/debug_tester ;\
+	@(cd $(MILLISOC_SW_DIR)/debug_tester ;\
 	$(MAKE) all $(SW_MAKE_OPTIONS) ;\
 	echo Compile done ;\
 	ls > /dev/null ;\
@@ -203,7 +203,7 @@ compile_all_code: bootrom debugtester
 
 # Remove all software compilation results
 clean_all_code:
-	@(cd $(DSPSOC_SW_DIR)/debug_tester ; $(MAKE) clean; )
+	@(cd $(MILLISOC_SW_DIR)/debug_tester ; $(MAKE) clean; )
 	@(cd $(TESTCODES_DIR)/$(BOOTLOADER) ; $(MAKE) clean; )
 	@for thistest in $(TEST_LIST) ; do \
 	  echo Cleaning $$thistest ...  ; \

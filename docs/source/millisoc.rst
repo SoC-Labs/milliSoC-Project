@@ -1,4 +1,4 @@
 
-DSP SoC Overview
+Milli SoC Overview
 ==================================================
 

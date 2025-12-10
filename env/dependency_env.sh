@@ -21,20 +21,20 @@ export ACCELERATOR_DIR="$SOCLABS_PROJECT_DIR/secworks-aes"
 # Accelerator Wrapper
 export SOCLABS_WRAPPER_TECH_DIR="$SOCLABS_PROJECT_DIR/accelerator_wrapper_tech"
 
-# dspsoc
-export SOCLABS_DSPSOC_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech"
+# millisoc
+export SOCLABS_MILLISOC_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech"
 
 # SoCDebug
-export SOCLABS_SOCDEBUG_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/socdebug_tech"
+export SOCLABS_SOCDEBUG_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/socdebug_tech"
 
 # SL AHB QPSPI
-export SOCLABS_AHB_QSPI_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/logical/ahb_qspi"
+export SOCLABS_AHB_QSPI_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/ahb_qspi"
 
 # SLDMA-230
-export SOCLABS_SLDMA230_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/logical/sldma230_tech"
+export SOCLABS_SLDMA230_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/sldma230_tech"
 
 # SLDAM-350
-export SOCLABS_SLDMA350_TECH_DIR="$SOCLABS_PROJECT_DIR/dspsoc_tech/dspsoc/sldma350_tech"
+export SOCLABS_SLDMA350_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/millisoc/sldma350_tech"
 
 # Primtives
 export SOCLABS_PRIMITIVES_TECH_DIR="$SOCLABS_PROJECT_DIR/rtl_primitives_tech"
