@@ -1,6 +1,6 @@
-[submodule "dspsoc_tech"]
-	path = dspsoc_tech
-	url = https://git.soton.ac.uk/soclabs/dspsoc/dspsoc_tech.git
+[submodule "millisoc_tech"]
+	path = millisoc_tech
+	url = https://git.soton.ac.uk/soclabs/millisoc/millisoc_tech
 [submodule "soctools_flow"]
 	path = soctools_flow
 	url = https://git.soton.ac.uk/soclabs/soctools_flow.git
