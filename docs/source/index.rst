@@ -10,7 +10,8 @@ Welcome to Milli SoCs documentation!
    :maxdepth: 2
    :caption: Contents:
 
-    dspsoc
+    millisoc
+    setup
     
 Indices and tables
 ==================

@@ -1,0 +1,3 @@
+{ +lint=none 
++tree=CORTEXM7INTEGRATIONMCU
+}
