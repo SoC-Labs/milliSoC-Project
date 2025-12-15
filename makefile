@@ -1,6 +1,6 @@
 include $(SOCLABS_PROJECT_DIR)/millisoc.config
 export CORTEX_M7_LOGICAL_DIR
-
+export CPU_TYPE
 # Directory to put simulation files
 SIM_TOP_DIR ?= $(SOCLABS_PROJECT_DIR)/simulate/sim
 SIM_DIR      = $(SIM_TOP_DIR)/$(TESTNAME)

@@ -20,7 +20,7 @@ SW_MAKE_OPTIONS = CPU_PRODUCT=CORTEX_M0 TOOL_CHAIN=$(TOOL_CHAIN)
 # Bootrom Parameters:
 # Boot Loader image
 BOOTLOADER        ?= bootloader
-BOOTROM_ADDRW     ?= 10
+BOOTROM_ADDRW     ?= 12
 BOOTROM_HEX       ?= $(SOCLABS_MILLISOC_TECH_DIR)/software/src/bootloader/$(BOOTLOADER).hex
 BOOTROM_BUILD_DIR ?= $(SOCLABS_PROJECT_DIR)/system/src/bootrom
 
@@ -74,7 +74,7 @@ ifeq ($(TESTNAME),)
 endif
 	@(if [ -d "$(TESTCODES_DIR)/$(TESTNAME)" ] ; then \
 	  cd $(TESTCODES_DIR)/$(TESTNAME) ;\
-	  $(MAKE) all $(SW_MAKE_OPTIONS) ; \
+	  $(MAKE) -C $(MILLISOC_SW_DIR)/common all $(SW_MAKE_OPTIONS) ; \
 	  echo Compile done ;\
 	  ls > /dev/null ;\
 	  echo Copy $(TESTNAME).hex ;\
@@ -220,4 +220,4 @@ clean_all_code:
 # Remove only bootloader and default selected test
 clean_code:
 	@(cd $(TESTCODES_DIR)/$(BOOTLOADER) ; $(MAKE) clean; cd $(SIM_DIR); )
-	@(cd $(TESTCODES_DIR)/$(TESTNAME)   ; $(MAKE) clean; cd $(SIM_DIR); )
+	@(cd $(TESTCODES_DIR)/$(TESTNAME)   ; $(MAKE) -C $(MILLISOC_SW_DIR)/common clean; cd $(SIM_DIR); )

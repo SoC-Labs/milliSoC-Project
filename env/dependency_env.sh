@@ -30,11 +30,8 @@ export SOCLABS_SOCDEBUG_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/soc
 # SL AHB QPSPI
 export SOCLABS_AHB_QSPI_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/ahb_qspi"
 
-# SLDMA-230
-export SOCLABS_SLDMA230_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/sldma230_tech"
-
-# SLDAM-350
-export SOCLABS_SLDMA350_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/millisoc/sldma350_tech"
+# SLDMA-350
+export SOCLABS_SLDMA350_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/sldma350_tech"
 
 # Primtives
 export SOCLABS_PRIMITIVES_TECH_DIR="$SOCLABS_PROJECT_DIR/rtl_primitives_tech"
