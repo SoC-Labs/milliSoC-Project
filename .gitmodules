@@ -16,3 +16,6 @@
 [submodule "asic_flow"]
 	path = asic_flow
 	url = https://git.soton.ac.uk/soclabs/asic_flow.git
+[submodule "millisoc_sdk"]
+	path = millisoc_sdk
+	url = https://git.soton.ac.uk/soclabs/millisoc/millisoc_sdk.git

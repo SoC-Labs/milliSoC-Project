@@ -12,59 +12,9 @@
 # Software Directory
 MILLISOC_SW_DIR     ?= $(SOCLABS_MILLISOC_TECH_DIR)/software
 
-# Software make options
-# - Pass onto the software makefile to define targetted CPU type
-# You can append additional make options for testcode here
-SW_MAKE_OPTIONS = CPU_PRODUCT=CORTEX_M0 TOOL_CHAIN=$(TOOL_CHAIN)
+bootrom:
+	make -C $(SOCLABS_MILLISOC_SDK_DIR) bootrom
 
-# Bootrom Parameters:
-# Boot Loader image
-BOOTLOADER        ?= bootloader
-BOOTROM_ADDRW     ?= 12
-BOOTROM_HEX       ?= $(SOCLABS_MILLISOC_TECH_DIR)/software/src/bootloader/$(BOOTLOADER).hex
-BOOTROM_BUILD_DIR ?= $(SOCLABS_PROJECT_DIR)/system/src/bootrom
-
-# code target is used by other simulation targets (e.g. run_mti, sim_mti)
-# Before simulation, bootrom and testcode need to be compiled.
-code : testcode bootrom
-
-# Boot ROM generation
-#--------------------------------------------------------------------------------
-# Output files and directories
-BOOTROM_SV_DIR := $(BOOTROM_BUILD_DIR)/verilog
-BOOTROM_BIN_DIR:= $(BOOTROM_BUILD_DIR)/bintxt
-
-# Output files
-BOOTROM_SV     := $(BOOTROM_SV_DIR)/bootrom.sv
-BOOTROM_BIN    := $(BOOTROM_BIN_DIR)/bootrom.bintxt
-
-BOOTROM_SIM_DIR := $(SIM_TOP_DIR)/bootloader
-BOOTROM_SIM_HEX := $(BOOTROM_SIM_DIR)/$(BOOTLOADER).hex
-
-# Intermediate files
-BOOTLOADER_HEX := $(TESTCODES_DIR)/$(BOOTLOADER)/$(BOOTLOADER).hex
-BOOTROM_GEN_PY := $(SOCLABS_MILLISOC_TECH_DIR)/software/src/bootloader/bootrom_gen.py
-
-bootrom: $(BOOTROM_SV) $(BOOTROM_BIN) $(BOOTROM_SIM_HEX)
-
-# Generate the Boot ROM Verilog and Binary Text files from the bootloader hex file
-$(BOOTROM_SV) $(BOOTROM_BIN): $(BOOTROM_HEX) $(BOOTROM_GEN_PY) | $(BOOTROM_SV_DIR) $(BOOTROM_BIN_DIR)
-	@echo "Generating Boot ROM Verilog and Binary Text files"
-	@echo "Toolchain: $(TOOL_CHAIN)"
-	@python3 $(BOOTROM_GEN_PY) -a $(BOOTROM_ADDRW) -i $(BOOTROM_HEX) -t $(TOOL_CHAIN) -v $(BOOTROM_SV) -b $(BOOTROM_BIN)
-
-# Copy the bootloader hex file to the simulation directory
-$(BOOTROM_SIM_HEX): $(BOOTLOADER_HEX) | $(SIM_TOP_DIR)/bootloader
-	@echo "Copying Boot ROM hex file to simulation directory"
-	@cp $(BOOTLOADER_HEX)  $(BOOTROM_SIM_HEX)
-
-# Create output directories if they do not exist
-$(BOOTROM_SV_DIR) $(BOOTROM_BIN_DIR) $(BOOTROM_SIM_DIR):
-	@mkdir -p $@
-
-# Compile bootloader in the testcodes/bootloader directory
-$(BOOTROM_HEX):
-	$(MAKE) -C $(TESTCODES_DIR)/$(BOOTLOADER) all_$(TOOL_CHAIN) $(SW_MAKE_OPTIONS)
 
 # Compile test code
 # Note : The use of ls after compile allows the computing server to sync up
@@ -72,16 +22,18 @@ testcode:
 ifeq ($(TESTNAME),)
 	$(error Please specify TESTNAME on the make command line)
 endif
-	@(if [ -d "$(TESTCODES_DIR)/$(TESTNAME)" ] ; then \
-	  cd $(TESTCODES_DIR)/$(TESTNAME) ;\
-	  $(MAKE) -C $(MILLISOC_SW_DIR)/common all $(SW_MAKE_OPTIONS) ; \
+	@(if [ -d "$(SOCLABS_MILLISOC_SDK_DIR)/apps/$(TESTNAME)" ] ; then \
+	  cd $(SOCLABS_MILLISOC_SDK_DIR) ;\
+	  $(MAKE) -C $(SOCLABS_MILLISOC_SDK_DIR) all $(SW_MAKE_OPTIONS) ; \
 	  echo Compile done ;\
 	  ls > /dev/null ;\
 	  echo Copy $(TESTNAME).hex ;\
-	  if [ -e  $(TESTNAME).hex ] ; then \
+	  if [ -e  build/$(TESTNAME)/$(TESTNAME).hex ] ; then \
 	    mkdir -p $(SIM_DIR) ; \
-	    cp $(TESTNAME).hex $(SIM_DIR)/image.hex ; \
-	    cp adp.cmd $(SIM_DIR)/adp.cmd ; \
+	    cp  build/$(TESTNAME)/$(TESTNAME).hex $(SIM_DIR)/image.hex ; \
+	    if [ -e apps/$(TESTNAME)/adp.cmd ] ; then \
+	    cp apps/$(TESTNAME)/adp.cmd $(SIM_DIR)/adp.cmd ; \
+		fi ;\
 	    if [ -e data_in.csv ] ; then \
 	  	cp data_in.csv $(SIM_DIR)/data_in.csv ; \
 	    fi ;\
