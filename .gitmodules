@@ -1,6 +1,6 @@
-[submodule "millisoc_tech"]
+[submodule "milliSoC-Tech"]
 	path = millisoc_tech
-	url = https://git.soton.ac.uk/soclabs/millisoc/millisoc_tech.git
+	url = https://github.com/SoC-Labs/milliSoC-Tech
 [submodule "soctools_flow"]
 	path = soctools_flow
 	url = https://git.soton.ac.uk/soclabs/soctools_flow.git
@@ -16,6 +16,6 @@
 [submodule "asic_flow"]
 	path = asic_flow
 	url = https://git.soton.ac.uk/soclabs/asic_flow.git
-[submodule "millisoc_sdk"]
+[submodule "milliSoC-SDK"]
 	path = millisoc_sdk
-	url = https://git.soton.ac.uk/soclabs/millisoc/millisoc_sdk.git
+	url = https://github.com/SoC-Labs/milliSoC-SDK
