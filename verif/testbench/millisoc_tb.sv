@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+
 module millisoc_tb();
 
 wire CLK;
@@ -70,7 +71,7 @@ always @(posedge CLK) begin
     end
 end
 
-extio8x4_axis_target u_extio8x4_axis_target(
+hostio4_target u_hostio4_axis_target(
   .clk             ( CLK             ),
   .resetn          ( nPORST            ),
   .testmode        ( 1'b0            ),
@@ -131,6 +132,11 @@ assign axis_rx1_tvalid = 1'b0;
     .rxd8_valid   (axis_tx1_tvalid),
     .rxd8_data    (axis_tx1_tdata8)
   );
+
+
+  bind olympus_core olympus_core_instrid u_instrid();
+  bind olympus_epu olympus_epu_instrid u_epu_instrid();
+
 
 
 

@@ -1,7 +1,11 @@
 
 
-$(SOCLABS_PROJECT_DIR)/verif/testbench/millisoc_tb.v
+$(SOCLABS_PROJECT_DIR)/verif/testbench/millisoc_tb.sv
 $(SOCLABS_PROJECT_DIR)/verif/control/millisoc_clkreset.v
 $(SOCLABS_PROJECT_DIR)/verif/trace/millisoc_axi_stream_io_8_rxd_to_file.v
-$(SOCLABS_PROJECT_DIR)/verif/trace/extio8x4_axis_target.v
-$(SOCLABS_PROJECT_DIR)/verif/trace/extio8x4_tfsm.v
+
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target.sv
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_sync.sv
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_fsm.sv
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_axis_txport.sv
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_axis_rxport.sv

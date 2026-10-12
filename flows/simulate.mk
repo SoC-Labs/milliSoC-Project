@@ -17,9 +17,19 @@ MTI_VC_OPTIONS    += -f $(TBENCH_VC)
 MTI_RUN_OPTIONS   = -voptargs=+acc
 
 # VCS options
-VCS_OPTIONS    = -sverilog $(CORTEX_M7_LOGICAL_DIR)/testbench/shared/tarmac/lib64/cm7_tarmac_dpi.so +define+CM7_TARMAC +define+CM7_TARMAC_DPI +define+OVL_VERILOG +define+ARM_ASSERT_ON -msg_config=$(SOCLABS_PROJECT_DIR)/verif/testbench/vcs_lint_config +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=all,noTMR,noVCDE -debug -debug_access+all 
+VCS_OPTIONS    = +define+OVL_VERILOG +define+ARM_ASSERT_ON +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=TFIPC-L +warn=noUSVS-ACWCFC -debug -debug_access+all 
 VCS_SIM_OPTION = +vcs+lic+wait +vcs+flush+log -assert nopostproc
 VCS_VC_OPTIONS = -f $(TBENCH_VC) 
+
+#---------------------------------
+# Optional VCS 
+#---------------------------------
+ifeq ($(CPU_TYPE),CM7)
+	VCS_OPTIONS +=  -sverilog $(CORTEX_M7_LOGICAL_DIR)/testbench/shared/tarmac/lib64/cm7_tarmac_dpi.so +define+CM7_TARMAC +define+CM7_TARMAC_DPI
+else ifeq ($(CPU_TYPE), CM85)
+	VCS_OPTIONS += +define+OLYMPUS_TARMAC +define+OLYMPUS_TARMAC_DPI +define+OLYMPUS_TARMAC_CAPTURE_TIME_VERILOG_TASK
+	VCS_SIM_OPTION +=  -sv_lib $(CORTEX_M85_LOGICAL_DIR)/logical/testbench/shared/tarmac/linux64/lib/olympus_tarmac_dpi 
+endif
 
 # ------- Cocotb Variables -----------
 # Convert Simulator Name for Cocotb
@@ -99,11 +109,11 @@ run_vcs : testcode
 	cd $(SIM_DIR); $(SIM_BUILD_DIR)/simv $(VCS_SIM_OPTION) -define ADP_FILE=adp.cmd < quit.do | tee logs/run_$(TESTNAME).log ;
 
 # Run simulation in interactive mode
-sim_vcs : code 
+sim_vcs : testcode 
 	@if [ ! -d $(SIM_DIR)/logs ] ; then \
 	  mkdir -p $(SIM_DIR)/logs; \
 	fi
-	cd $(SIM_DIR); $(SIM_BUILD_DIR)/simv -gui +vcs+lic+wait +vcs+flush+log &
+	cd $(SIM_DIR); $(SIM_BUILD_DIR)/simv $(VCS_SIM_OPTION) -gui +vcs+lic+wait +vcs+flush+log &
 
 # ------- MTI -----------
 
