@@ -2,10 +2,5 @@
 
 $(SOCLABS_PROJECT_DIR)/verif/testbench/millisoc_tb.sv
 $(SOCLABS_PROJECT_DIR)/verif/control/millisoc_clkreset.v
-$(SOCLABS_PROJECT_DIR)/verif/trace/millisoc_axi_stream_io_8_rxd_to_file.v
 
-$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target.sv
-$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_sync.sv
-$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_fsm.sv
-$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_axis_txport.sv
-$(SOCLABS_MILLISOC_TECH_DIR)/logical/hostio4/target_rtl/hostio4_target_axis_rxport.sv
+$(ARM_IP_LIBRARY_PATH)/Corstone-101/BP210-r1p1-00rel0/BP210-BU-00000-r1p1-00rel0/systems/cortex_m_mcu/verilog/cmsdk_uart_capture.v

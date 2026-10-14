@@ -1,7 +1,5 @@
 
 
-$(SOCLABS_PROJECT_DIR)/top/logical/millisoc_top.v
-
 -f $(SOCLABS_MILLISOC_TECH_DIR)/flist/millisoc_BEHAV.flist
 -f $(SOCLABS_PROJECT_DIR)/flist/millisoc_tb.flist
 
