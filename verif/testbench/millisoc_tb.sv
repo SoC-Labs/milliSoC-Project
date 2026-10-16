@@ -9,6 +9,7 @@ wire         QSPI_nCS;
 wire [3:0]   QSPI_IO;
 
 wire  UARTTXD0;
+wire  UARTTXD0_RT;
 
 millisoc_chip_pads u_millisoc(
     .CLK(CLK),
@@ -17,7 +18,9 @@ millisoc_chip_pads u_millisoc(
     .QSPI_nCS(QSPI_nCS),
     .QSPI_IO(QSPI_IO),
 
-    .UARTTXD0(UARTTXD0)
+    .UARTTXD0(UARTTXD0),
+
+    .UARTTXD0_RT(UARTTXD0_RT)
 );
 
 millisoc_clkreset u_millisoc_clkreset(
@@ -50,7 +53,7 @@ end
  // UART output capture
  // --------------------------------------------------------------------------------
 
-assign PCLK = u_millisoc.u_millisoc_system.u_millisoc_peripheral_subsystem.u_apb_uart_0.BAUDTICK;
+assign PCLK = u_millisoc.u_millisoc_system.u_rt_peripheral.u_rx_periphs.u_apb_uart_0.BAUDTICK;
 
 reg [3:0] pllq;
 
@@ -65,7 +68,7 @@ end
 cmsdk_uart_capture u_uart_capture(
   .RESETn(nPORST),
   .CLK(pllq[3]),
-  .RXD(UARTTXD0),
+  .RXD(UARTTXD0_RT),
   .SIMULATIONEND(test_done),
   .DEBUG_TESTER_ENABLE(),
   .AUXCTRL()

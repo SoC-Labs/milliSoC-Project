@@ -155,19 +155,7 @@ compile_all_code: bootrom debugtester
 
 # Remove all software compilation results
 clean_all_code:
-	@(cd $(MILLISOC_SW_DIR)/debug_tester ; $(MAKE) clean; )
-	@(cd $(TESTCODES_DIR)/$(BOOTLOADER) ; $(MAKE) clean; )
-	@for thistest in $(TEST_LIST) ; do \
-	  echo Cleaning $$thistest ...  ; \
-	  if [ -e $(TESTCODES_DIR)/$$thistest ]; then \
-	  	cd $(TESTCODES_DIR)/$$thistest ; \
-	  	$(MAKE) clean; \
-	  elif [ -e $(PROJ_SW_DIR)/$$thistest ]; then \
-	  	cd $(PROJ_SW_DIR)/$$thistest ; \
-	  	$(MAKE) clean; \
-	  fi \
-	done
-	@rm -rf $(BOOTROM_BUILD_DIR)
+	make -C $(SOCLABS_MILLISOC_SDK_DIR) clean
 
 # Remove only bootloader and default selected test
 clean_code:

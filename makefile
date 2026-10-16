@@ -2,8 +2,10 @@ include $(SOCLABS_PROJECT_DIR)/millisoc.config
 export CORTEX_M7_LOGICAL_DIR
 export CORTEX_M85_LOGICAL_DIR
 export CORTEX_M85_DAPLITE_DIR
+export CORTEX_R5_LOGICAL_DIR
 
 export CPU_TYPE
+export R_CPU_TYPE
 # Directory to put simulation files
 SIM_TOP_DIR ?= $(SOCLABS_PROJECT_DIR)/simulate/sim
 SIM_DIR      = $(SIM_TOP_DIR)/$(TESTNAME)
@@ -43,6 +45,11 @@ ifeq ($(CPU_TYPE),CM7)
 else ifeq ($(CPU_TYPE), CM85)
 	FLIST_INCLUDES += $(SOCLABS_MILLISOC_TECH_DIR)/flist/IP/CortexM85.flist
 	FLIST_INCLUDES += $(SOCLABS_MILLISOC_TECH_DIR)/flist/IP/CortexM85_BEHAV.flist
+endif
+
+ifeq ($(R_CPU_TYPE),CR5)
+	FLIST_INCLUDES += $(SOCLABS_MILLISOC_TECH_DIR)/flist/IP/CortexR5.flist
+	FLIST_INCLUDES += $(SOCLABS_MILLISOC_TECH_DIR)/flist/IP/CortexR5_BEHAV.flist
 endif
 
 export FLIST_INCLUDES

@@ -17,8 +17,8 @@ MTI_VC_OPTIONS    += -f $(TBENCH_VC)
 MTI_RUN_OPTIONS   = -voptargs=+acc
 
 # VCS options
-VCS_OPTIONS    = +define+OVL_VERILOG +define+ARM_ASSERT_ON +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=TFIPC-L +warn=noUSVS-ACWCFC -debug -debug_access+all 
-VCS_SIM_OPTION = +vcs+lic+wait +vcs+flush+log -assert nopostproc
+VCS_OPTIONS    = +define+ARM_TARMAC +define+RTL_SIM +define+OVL_VERILOG +define+ARM_ASSERT_ON +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=TFIPC-L +warn=noUSVS-ACWCFC -debug -debug_access+all 
+VCS_SIM_OPTION = +vcs+lic+wait +vcs+flush+log -assert nopostproc +define+ARM_TARMAC +define+RTL_SIM +TarmacI +TarmacM +TarmacR +TarmacE
 VCS_VC_OPTIONS = -f $(TBENCH_VC) 
 
 #---------------------------------
@@ -106,7 +106,7 @@ run_vcs : testcode
 	@if [ -f $(TESTCODES_DIR)/$(TESTNAME)/adp.cmd ] ; then \
 		cp $(TESTCODES_DIR)/$(TESTNAME)/adp.cmd $(SIM_DIR)/; \
 	fi
-	cd $(SIM_DIR); $(SIM_BUILD_DIR)/simv $(VCS_SIM_OPTION) -define ADP_FILE=adp.cmd < quit.do | tee logs/run_$(TESTNAME).log ;
+	cd $(SIM_DIR); $(SIM_BUILD_DIR)/simv $(VCS_SIM_OPTION) < quit.do | tee logs/run_$(TESTNAME).log ;
 
 # Run simulation in interactive mode
 sim_vcs : testcode 
