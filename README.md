@@ -1,93 +1,147 @@
-# MilliSoC Project
+# milliSoC
 
+milliSoC is a reusable, configurable System-on-Chip (SoC) reference platform for real-time Edge AI,
+developed as part of SoC Labs at the University of Southampton.
 
+Its purpose is to give researchers, students, and small engineering teams a working SoC foundation —
+processors, memory system, boot infrastructure, peripherals, and build/simulation flows — so they can
+integrate, evaluate, and eventually tape out novel AI accelerators and application-specific IP without
+building an entire SoC from scratch.
+
+The platform is an evolving reference design, not a fixed commercial product. Modularity,
+reproducibility, and ease of integration are first-class goals: the NPU subsystem, peripherals,
+memory map, and firmware are all intended to be adapted to your own research.
+
+## Architecture
+
+The baseline milliSoC is a heterogeneous multiprocessor SoC with three primary compute elements:
+
+| Element | Role |
+|---|---|
+| **Arm Cortex-R5** | Master processor: system control, real-time coordination, supervision of other cores |
+| **Arm Cortex-M85** | Programmable application core: data handling, signal processing, AI workloads |
+| **Configurable NPU / AI accelerator** | Hardware acceleration for neural-network inference (planned: Arm Ethos-U85 demonstrator, replaceable with custom research IP) |
+
+Supporting infrastructure includes a boot ROM, QSPI flash interface, private tightly-coupled
+memories (TCMs) for each core, shared memory for inter-processor communication, UART/timer
+peripherals, and a GIC-400 interrupt controller. The intended boot path is ROM → QSPI → SRAM/TCM,
+with the R5 booting first and releasing the M85 from reset once the platform is initialized.
+
+## Repository layout
+
+This repository is the top-level integration project. Most of the technology lives in git
+submodules:
+
+| Directory | Contents |
+|---|---|
+| `millisoc_tech/` | milliSoC RTL and IP (submodule) |
+| `millisoc_sdk/` | Bare-metal software SDK: apps, bootloader, drivers (submodule) |
+| `soctools_flow/` | Build/flow scripts: filelist and defines compilation, project setup (submodule) |
+| `rtl_primitives_tech/`, `generic_lib_tech/`, `asic_library_tech/`, `asic_flow/` | Library and flow dependencies (submodules) |
+| `makefile`, `flows/` | Top-level make glue for simulation, software, and (stubbed) lint/FPGA/ASIC flows |
+| `flist/` | Top-level simulation filelists |
+| `verif/` | Testbench (`millisoc_tb.sv`), clock/reset control, trace support |
+| `top/`, `system/` | Generated defines and generated bootrom (both gitignored) |
+| `env/`, `set_env.sh`, `millisoc.config` | Environment and CPU configuration |
+| `simulate/` | Simulation build and run output (gitignored) |
+
+## Prerequisites
+
+- **Git submodules** — clone with submodules, or initialise them after cloning (see below).
+- **Arm IP library** — a licensed Arm IP tree containing Cortex-M85 (AT640), Cortex-R5 (AT575),
+  and Corstone-101 (BP210) components, referenced via the `ARM_IP_LIBRARY_PATH` environment
+  variable. None of this IP is included in the repository; builds and simulations fail without it.
+- **EDA tools** — Synopsys VCS (default), Siemens Questa, or Cadence Xcelium for RTL simulation.
+- **Toolchains** — Arm Development Studio 6 (`armclang`) for software builds.
+  The SDK Makefile also has `gcc`/`keil` targets, but they are currently broken
+  or placeholder — use the default `ds6` flow.
 
 ## Getting started
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+```sh
+# 1. Clone with submodules
+git clone --recurse-submodules <repo-url>
+cd millisoc_project
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+# 2. If you cloned without submodules, initialise them once:
+#    SOCLABS_SETUP_SUBMODULES=1 source set_env.sh
+#    WARNING: this re-checks-out submodule branches and reverts uncommitted
+#    submodule work. Never run it (or `source set_env.sh -f`) on a dirty tree.
 
-## Add your files
+# 3. Source the environment (do this in every new shell; source, don't execute)
+source set_env.sh
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+# 4. Select the CPU configuration in millisoc.config (defaults: CM85 + CR5)
+#    Examples are in millisoc.config_examples/
 
+# 5. Compile the RTL and run the hello-world test
+make compile SIMULATOR=vcs
+make run TESTNAME=hello SIMULATOR=vcs
 ```
-cd existing_repo
-git remote add origin https://git.soton.ac.uk/soclabs/dspsoc/dspsoc_project.git
-git branch -M main
-git push -uf origin main
-```
 
-## Integrate with your tools
+`set_env.sh` locates the project via the `.slprojroot` marker and exports all `SOCLABS_*_DIR`
+environment variables used by the makefiles.
 
-- [ ] [Set up project integrations](https://git.soton.ac.uk/soclabs/dspsoc/dspsoc_project/-/settings/integrations)
+## Common tasks
 
-## Collaborate with your team
+All commands run from the project root after `source set_env.sh`. **You must pass
+`SIMULATOR=vcs` (or `mti`/`xm`)** to the top-level `compile`/`run`/`sim` targets — without it
+make fails with "no rule to make target `compile_`".
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+| Task | Command |
+|---|---|
+| Compile RTL | `make compile SIMULATOR=vcs` |
+| Run a test (batch) | `make run TESTNAME=hello SIMULATOR=vcs` |
+| Run a test (GUI) | `make sim TESTNAME=hello SIMULATOR=vcs` |
+| Build a test's firmware only | `make testcode TESTNAME=hello` |
+| Generate bootrom from bootloader | `make bootrom` |
+| Regenerate defines file | `make gen_defs` (also runs automatically during compile) |
+| Build firmware directly | `make -C millisoc_sdk TESTNAME=hello` (default toolchain `ds6`) |
 
-## Test and Deploy
+`TESTNAME` must match an application directory in `millisoc_sdk/apps/` (default: `hello`).
+Simulation output lands in `simulate/sim/<TESTNAME>/`, with logs in
+`simulate/sim/<TESTNAME>/logs/run_<TESTNAME>.log`. The compiled simulation image lives in
+`simulate/sim/build/`.
 
-Use the built-in continuous integration in GitLab.
+The generated bootrom (`system/src/bootrom/`) and defines file (`top/logical/gen_defines.v`)
+are build artifacts and gitignored — never hand-edit or commit them.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## Current status
 
-***
+milliSoC is under active RTL integration and simulation bring-up.
 
-# Editing this README
+Current work includes:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+- **Cortex-M85** — integrated; firmware execution, boot/startup code, and simulation debugging
+  are working and actively developed.
+- **Memory system** — boot ROM and SRAM integrated; QSPI flash controller implemented.
+- **Buses and peripherals** — bus infrastructure and memory mapping in place; UART and timers
+  available in simulation.
+- **Cortex-R5** — being integrated as the system master.
+- **Interrupts** — GIC-400 integration in progress as part of the transition to the
+  heterogeneous multiprocessor system.
+- **NPU** — preparation for configurable accelerator integration; no fixed NPU commitment.
+- **Flows** — simulation (VCS/Questa/Xcelium) and software build flows are functional; the
+  lint, regression, FPGA, and ASIC makefile flows at the top level are placeholders.
 
-## Suggestions for a good README
+A known open issue: initializing the GIC-400 from the R5 hangs during the `intr_security_set`
+function, around an MMIO read of `0x44021084` (identified as GIC distributor register
+`GICD_IGROUPR1`). This is an active debugging lead, not a confirmed root cause — verify against
+the actual RTL and address map before drawing conclusions.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Status evolves quickly; always inspect the current repository and latest simulation logs rather
+than assuming the state described here.
 
-## Name
-Choose a self-explaining name for your project.
+## Further documentation
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+- `AGENTS.md` — project context and engineering instructions for AI agents, plus a verified
+  repository-specific guide (environment quirks, build gotchas, generated files).
+- `millisoc_sdk/AGENTS.md` — SDK notes, but **out of date** (e.g. still says
+  DS-5 default, no in-tree CMSIS); trust the SDK Makefiles instead, or the
+  SDK section of the root `AGENTS.md`.
+- `docs/` — Sphinx documentation skeleton (currently mostly empty).
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## License and acknowledgements
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Developed for SoC Labs (www.soclabs.org), University of Southampton, under Arm Academic Access
+licence. See individual submodules for their own licence and contribution information.
