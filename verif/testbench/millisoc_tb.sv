@@ -41,9 +41,10 @@ end
 
 
 wire test_done;
+wire test_done_M;
 
 always @(posedge CLK) begin
-    if(test_done) begin
+    if(test_done || test_done_M) begin
         $stop;
     end
 end
@@ -65,7 +66,7 @@ always @(posedge PCLK or negedge nPORST) begin
   end
 end
 
-cmsdk_uart_capture u_uart_capture(
+uart_logger #(.LOGFILENAME("./logs/uart_R5.log")) u_uart_R5(
   .RESETn(nPORST),
   .CLK(pllq[3]),
   .RXD(UARTTXD0_RT),
@@ -73,6 +74,28 @@ cmsdk_uart_capture u_uart_capture(
   .DEBUG_TESTER_ENABLE(),
   .AUXCTRL()
 );
+
+assign PCLK_M = u_millisoc.u_millisoc_system.u_millisoc_peripheral_subsystem.u_apb_uart_0.BAUDTICK;
+
+reg [3:0] pllq_m;
+
+always @(posedge PCLK_M or negedge nPORST) begin
+  if(!nPORST) begin
+    pllq_m <= 4'b0;
+  end else begin
+    pllq_m <= pllq_m + 1'b1;
+  end
+end
+
+uart_logger #(.LOGFILENAME("./logs/uart_M85.log")) u_uart_M85(
+  .RESETn(nPORST),
+  .CLK(pllq_m[3]),
+  .RXD(UARTTXD0),
+  .SIMULATIONEND(test_done_M),
+  .DEBUG_TESTER_ENABLE(),
+  .AUXCTRL()
+);
+
 
   bind olympus_core olympus_core_instrid u_instrid();
   bind olympus_epu olympus_epu_instrid u_epu_instrid();
