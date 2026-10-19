@@ -11,13 +11,14 @@
 #-----------------------------------------------------------------------------
 
 # MTI options
-MTI_VC_OPTIONS    = +acc
+MTI_VC_OPTIONS    = +acc +define+ARM_TARMAC +define+RTL_SIM +define+ARM_ASSERT_ON
 MTI_VC_OPTIONS    += -suppress 2892
 MTI_VC_OPTIONS    += -f $(TBENCH_VC) 
-MTI_RUN_OPTIONS   = -voptargs=+acc
-
+MTI_RUN_OPTIONS   = -voptargs=+acc +define+ARM_TARMAC +define+RTL_SIM +TarmacI +TarmacM +TarmacR +TarmacE
+MODELSIM_INI := $(SIM_BUILD_DIR)/modelsim.ini
+WORK_LIB   := $(SIM_BUILD_DIR)/work
 # VCS options
-VCS_OPTIONS    = +define+ARM_TARMAC +define+RTL_SIM +define+OVL_VERILOG +define+ARM_ASSERT_ON +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=TFIPC-L +warn=noUSVS-ACWCFC -debug -debug_access+all 
+VCS_OPTIONS    = +define+ARM_TARMAC +define+RTL_SIM +define+ARM_ASSERT_ON +vcs+lic+wait +v2k -sverilog -override_timescale=1ns/1ps +lint=TFIPC-L +warn=noUSVS-ACWCFC -debug -debug_access+all 
 VCS_SIM_OPTION = +vcs+lic+wait +vcs+flush+log -assert nopostproc +define+ARM_TARMAC +define+RTL_SIM +TarmacI +TarmacM +TarmacR +TarmacE
 VCS_VC_OPTIONS = -f $(TBENCH_VC) 
 
@@ -117,16 +118,21 @@ sim_vcs : testcode
 
 # ------- MTI -----------
 
+
+$(MODELSIM_INI):
+	cd "$(SIM_BUILD_DIR)" && vlib work
+	cd "$(SIM_BUILD_DIR)" && vmap work "$(WORK_LIB)"
+
 # Compile RTL
-compile_mti : bootrom gen_defs flist_vfiles_millisoc lib_mti
-	cd $(SIM_BUILD_DIR); vlog -incr -lint +v2k  -f tbench.vc $(DEFINES_VC) | tee compile_mti.log
+compile_mti : bootrom gen_defs flist_vfiles_millisoc $(MODELSIM_INI)
+	cd $(SIM_BUILD_DIR); vlog -modelsimini "$(MODELSIM_INI)" -work work -incr -lint +v2k  -f tbench.vc $(DEFINES_VC) | tee compile_mti.log
 
 # Run simulation in batch mode
-run_mti : code compile_mti
+run_mti : testcode
 	@echo "run -all" > $(SIM_DIR)/run.tcl.tmp
 	@echo "quit -f" >> $(SIM_DIR)/run.tcl.tmp
 	@mv  $(SIM_DIR)/run.tcl.tmp $(SIM_DIR)/run.tcl
-	cd $(SIM_DIR); vsim $(MTI_RUN_OPTIONS) -c $(TB_TOP) -do run.tcl | tee $(SIM_DIR)/logs/run_$(TESTNAME).log ;
+	cd $(SIM_DIR); vsim $(MTI_RUN_OPTIONS) -modelsimini "$(MODELSIM_INI)" -c work.millisoc_tb -do run.tcl | tee $(SIM_DIR)/logs/run_$(TESTNAME).log ;
 
 run_mti_to:
 	timeout 2s $(MAKE) run_mti >> /dev/null 2>&1 
@@ -135,15 +141,15 @@ run_mti_wrap:
 	$(MAKE) run_mti_to
 	
 # Run simulation in interactive mode
-sim_mti : code compile_mti
-	cd $(SIM_DIR); vsim $(MTI_RUN_OPTIONS) -gui $(TB_TOP) &
+sim_mti :  
+	cd $(SIM_DIR); vsim $(MTI_RUN_OPTIONS) -modelsimini "$(MODELSIM_INI)"  -gui  work.millisoc_tb &
 
 # Create work directory
 lib_mti :
-	@if [ -d $(SIM_DIR)/work ] ; then \
+	@if [ -d $(SIM_BUILD_DIR)/work ] ; then \
           true ; \
 	else \
-	  vlib  $(SIM_DIR)/work; \
+	  vlib  $(SIM_BUILD_DIR)/work; \
 	fi
 
 # Generate Make filelist from flists

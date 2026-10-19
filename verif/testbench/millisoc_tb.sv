@@ -286,54 +286,6 @@ axi4_logger #(
     .RREADY(u_millisoc.u_millisoc_system.CPU_AXI.RREADY)
 );
 
- // -- AXI4: R5 <-> GIC-400 distributor/CPU interface registers
- //    (all GICD accesses incl. the intr_security_set / GICD_IGROUPR1 hang land here)
-axi4_logger #(
-    .NAME("rt_gic"), .ID_W(4), .DATA_W(32)
-) u_axi4_rt_gic (
-    .ACLK(CLK),
-    .ARESETn(u_millisoc.u_millisoc_system.nSYSRESET),
-
-    .AWID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWID),
-    .AWADDR(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWADDR),
-    .AWLEN(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWLEN),
-    .AWSIZE(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWSIZE),
-    .AWBURST(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWBURST),
-    .AWLOCK(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWLOCK),
-    .AWCACHE(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWCACHE),
-    .AWPROT(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWPROT),
-    .AWVALID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWVALID),
-    .AWREADY(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.AWREADY),
-
-    .WDATA(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.WDATA),
-    .WSTRB(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.WSTRB),
-    .WLAST(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.WLAST),
-    .WVALID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.WVALID),
-    .WREADY(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.WREADY),
-
-    .BID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.BID),
-    .BRESP(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.BRESP),
-    .BVALID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.BVALID),
-    .BREADY(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.BREADY),
-
-    .ARID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARID),
-    .ARADDR(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARADDR),
-    .ARLEN(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARLEN),
-    .ARSIZE(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARSIZE),
-    .ARBURST(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARBURST),
-    .ARLOCK(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARLOCK),
-    .ARCACHE(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARCACHE),
-    .ARPROT(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARPROT),
-    .ARVALID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARVALID),
-    .ARREADY(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.ARREADY),
-
-    .RID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.RID),
-    .RDATA(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.RDATA),
-    .RRESP(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.RRESP),
-    .RLAST(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.RLAST),
-    .RVALID(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.RVALID),
-    .RREADY(u_millisoc.u_millisoc_system.CPU_Rx_GIC_AXI.RREADY)
-);
 
  // -- AXI4: DMA350 master port into NIC400
 axi4_logger #(

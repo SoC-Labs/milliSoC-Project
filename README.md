@@ -24,7 +24,7 @@ The baseline milliSoC is a heterogeneous multiprocessor SoC with three primary c
 
 Supporting infrastructure includes a boot ROM, QSPI flash interface, private tightly-coupled
 memories (TCMs) for each core, shared memory for inter-processor communication, UART/timer
-peripherals, and a GIC-400 interrupt controller. The intended boot path is ROM → QSPI → SRAM/TCM,
+peripherals, and a PL192 Vectored Interrupt Controller (VIC). The intended boot path is ROM → QSPI → SRAM/TCM,
 with the R5 booting first and releasing the M85 from reset once the platform is initialized.
 
 ## Repository layout
@@ -118,13 +118,13 @@ Current work includes:
 - **Buses and peripherals** — bus infrastructure and memory mapping in place; UART and timers
   available in simulation.
 - **Cortex-R5** — being integrated as the system master.
-- **Interrupts** — GIC-400 integration in progress as part of the transition to the
+- **Interrupts** — PL192 VIC integration in progress as part of the transition to the
   heterogeneous multiprocessor system.
 - **NPU** — preparation for configurable accelerator integration; no fixed NPU commitment.
 - **Flows** — simulation (VCS/Questa/Xcelium) and software build flows are functional; the
   lint, regression, FPGA, and ASIC makefile flows at the top level are placeholders.
 
-A known open issue: initializing the GIC-400 from the R5 hangs during the `intr_security_set`
+A known open issue: initializing the PL192 VIC from the R5 requires proper integration of the RTL and firmware driver to ensure correct interrupt handling.
 function, around an MMIO read of `0x44021084` (identified as GIC distributor register
 `GICD_IGROUPR1`). This is an active debugging lead, not a confirmed root cause — verify against
 the actual RTL and address map before drawing conclusions.
