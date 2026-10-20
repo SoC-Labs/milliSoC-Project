@@ -43,8 +43,37 @@ end
 wire test_done;
 wire test_done_M;
 
+reg test_done_rt_sticky;
+reg test_done_M_sticky;
+
+reg test_done_rt_sync;
+reg test_done_M_sync;
+
+always @(posedge CLK or negedge nPORST) begin
+    if (~nPORST) begin
+        test_done_rt_sync <= 1'b0;
+        test_done_M_sync <= 1'b0;
+    end else begin
+        test_done_rt_sync <= test_done;
+        test_done_M_sync <= test_done_M;
+    end
+end
+
+always @(posedge CLK or negedge nPORST) begin
+    if (~nPORST) begin
+        test_done_rt_sticky <= 1'b0;
+        test_done_M_sticky <= 1'b0;
+    end else begin
+        if (test_done && (~test_done_rt_sync))
+            test_done_rt_sticky <= 1'b1;
+        if (test_done_M && (~test_done_M_sync))
+            test_done_M_sticky <= 1'b1;
+    end
+end
+
+
 always @(posedge CLK) begin
-    if(test_done || test_done_M) begin
+    if(test_done_rt_sticky && test_done_M_sticky) begin
         $stop;
     end
 end

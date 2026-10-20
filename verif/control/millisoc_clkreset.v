@@ -56,8 +56,7 @@ module millisoc_clkreset(
     end
 
   always @(clock_q)
- //     #25 clock_q <= ~clock_q; // 50ns period 20MHz - 9600 baud 
-      #5 clock_q <= !clock_q;  // 10ns period, 100MHz - 48000 baud
+      #2 clock_q <= !clock_q;  // 4ns period, 250MHz
 
   assign CLK = clock_q;
 

@@ -235,13 +235,13 @@ module uart_logger
   else
     begin
     reg_end_simulation  <= nxt_end_simulation;
-    if (reg_end_simulation==1'b1)
+    if (SIMULATIONEND==1'b1)
       begin
         if (VERBOSE != 0)
           $fwrite(mcd,"%t UART<%m>: Test Ended\n",$time);
         else
           $fwrite(mcd,"Test Ended\n");
-      $stop;
+      //$stop;
       end
     end
   end

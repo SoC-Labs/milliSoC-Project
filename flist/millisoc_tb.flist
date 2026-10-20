@@ -4,5 +4,3 @@ $(SOCLABS_PROJECT_DIR)/verif/monitors/axi3_logger.sv
 $(SOCLABS_PROJECT_DIR)/verif/monitors/axi4_logger.sv
 $(SOCLABS_PROJECT_DIR)/verif/testbench/millisoc_tb.sv
 $(SOCLABS_PROJECT_DIR)/verif/control/millisoc_clkreset.v
-
-$(ARM_IP_LIBRARY_PATH)/Corstone-101/BP210-r1p1-00rel0/BP210-BU-00000-r1p1-00rel0/systems/cortex_m_mcu/verilog/cmsdk_uart_capture.v
