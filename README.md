@@ -24,8 +24,10 @@ The baseline milliSoC is a heterogeneous multiprocessor SoC with three primary c
 
 Supporting infrastructure includes a boot ROM, QSPI flash interface, private tightly-coupled
 memories (TCMs) for each core, shared memory for inter-processor communication, UART/timer
-peripherals, and a PL192 Vectored Interrupt Controller (VIC). The intended boot path is ROM → QSPI → SRAM/TCM,
-with the R5 booting first and releasing the M85 from reset once the platform is initialized.
+peripherals, and a PL192 Vectored Interrupt Controller (VIC). The boot path is ROM → QSPI → TCM:
+the R5 boots first from boot ROM, preloads both cores' TCMs from a single flash image, and
+releases the M85 from CPUWAIT once the platform is initialized. This boot flow is implemented
+and passing in RTL simulation (see [Current status](#current-status)).
 
 ## Repository layout
 
@@ -93,7 +95,7 @@ make fails with "no rule to make target `compile_`".
 | Compile RTL | `make compile SIMULATOR=vcs` |
 | Run a test (batch) | `make run TESTNAME=hello SIMULATOR=vcs` |
 | Run a test (GUI) | `make sim TESTNAME=hello SIMULATOR=vcs` |
-| Build a test's firmware only | `make testcode TESTNAME=hello` |
+| Build a test's firmware (both cores) | `make testcode TESTNAME=hello` |
 | Generate bootrom from bootloader | `make bootrom` |
 | Regenerate defines file | `make gen_defs` (also runs automatically during compile) |
 | Build firmware directly | `make -C millisoc_sdk TESTNAME=hello` (default toolchain `ds6`) |
@@ -106,28 +108,62 @@ Simulation output lands in `simulate/sim/<TESTNAME>/`, with logs in
 The generated bootrom (`system/src/bootrom/`) and defines file (`top/logical/gen_defines.v`)
 are build artifacts and gitignored — never hand-edit or commit them.
 
+## Flash image format
+
+`make testcode` builds two firmware images per application — `<TESTNAME>_M.hex` (Cortex-M85)
+and `<TESTNAME>_R.hex` (Cortex-R5) — and combines them into `<TESTNAME>.hex` using
+`millisoc_sdk/tools/concat_hex.py` (wired into the `all_ds6` make target). The combined
+file is copied to `simulate/sim/<TESTNAME>/image.hex` and preloaded into the QSPI flash
+model by the testbench. Layout, with offsets relative to the start of the flash image
+(flash address 0):
+
+| Offset | Size | Contents |
+|---|---|---|
+| `0x00` | 4 bytes | M-class image start offset |
+| `0x04` | 4 bytes | M-class image size in 32-bit words |
+| `0x08` | 4 bytes | R-class image start offset |
+| `0x0C` | 4 bytes | R-class image size in 32-bit words |
+| `0x10` | … | M-class image bytes, followed by the R-class image bytes |
+
+All fields are little-endian and every line of the file is a single hex byte, so the whole
+image stays `$readmemh`-compatible with the byte-wide flash model. The bootloader reads this
+preamble and DMA-copies each image into its core's TCM.
+
 ## Current status
 
-milliSoC is under active RTL integration and simulation bring-up.
+milliSoC is under active development. The baseline heterogeneous boot path is working in
+RTL simulation.
 
-Current work includes:
+Working and verified in simulation (VCS, `hello` test, October 2026):
 
-- **Cortex-M85** — integrated; firmware execution, boot/startup code, and simulation debugging
-  are working and actively developed.
-- **Memory system** — boot ROM and SRAM integrated; QSPI flash controller implemented.
-- **Buses and peripherals** — bus infrastructure and memory mapping in place; UART and timers
-  available in simulation.
-- **Cortex-R5** — being integrated as the system master.
-- **Interrupts** — PL192 VIC integration in progress as part of the transition to the
-  heterogeneous multiprocessor system.
+- **Boot process** — the R5-first two-stage boot works end to end: the R5 boots from boot ROM
+  and runs the second-stage bootloader, which reads the flash-image preamble (see
+  [Flash image format](#flash-image-format)), uses the DMA350 — with its completion interrupt
+  serviced through the PL192 VIC — to copy the M-class image into the M85 ITCM
+  (`0x00000000`) and the R-class image into the R5 ATCM (`0x80000000`), releases the M85 from
+  CPUWAIT by clearing `sysctrl->cpu_mx_wait`, and hands execution over to the loaded images.
+  Both cores run their applications: `Hello SoCLabs MilliSoC` is printed from the R5 and M85
+  UARTs, and the test ends via `UartEndSimulation`.
+- **Cortex-R5** — integrated and working as the system master: boots, services interrupts,
+  runs its applications.
+- **Cortex-M85** — integrated and running its application firmware from ITCM after release.
+- **Memory system** — boot ROM, SRAM, and QSPI flash controller integrated and proven along
+  the boot path; UART and timer peripherals working in simulation.
+- **Interrupts** — PL192 VIC integrated and driven by firmware (the GIC-400 was dropped in
+  its favour).
+
+Still in progress:
+
 - **NPU** — preparation for configurable accelerator integration; no fixed NPU commitment.
-- **Flows** — simulation (VCS/Questa/Xcelium) and software build flows are functional; the
-  lint, regression, FPGA, and ASIC makefile flows at the top level are placeholders.
+- **Applications** — only `hello` has been converted to the dual-core `_M`/`_R` split;
+  `reset_demo` still needs converting before `all_ds6` can build it.
+- **Flows** — the VCS simulation flow and `ds6` software build flow are the verified paths.
+  The lint, regression, FPGA, and ASIC makefile flows at the top level are placeholders, and
+  the Questa run flow references an undefined `$(TB_TOP)` and does not work as-is.
 
-A known open issue: initializing the PL192 VIC from the R5 requires proper integration of the RTL and firmware driver to ensure correct interrupt handling.
-function, around an MMIO read of `0x44021084` (identified as GIC distributor register
-`GICD_IGROUPR1`). This is an active debugging lead, not a confirmed root cause — verify against
-the actual RTL and address map before drawing conclusions.
+Historical analysis of an earlier R5 boot failure (an ISB-ordering sensitivity in bring-up)
+is retained in `docs/r5_boot_isb_sensitivity_analysis.md`; it predates the current working
+boot and should be read as background, not current status.
 
 Status evolves quickly; always inspect the current repository and latest simulation logs rather
 than assuming the state described here.
