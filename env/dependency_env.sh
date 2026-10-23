@@ -27,6 +27,11 @@ export SOCLABS_MILLISOC_SDK_DIR="$SOCLABS_PROJECT_DIR/millisoc_sdk"
 # SoCDebug
 export SOCLABS_SOCDEBUG_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/socdebug_tech"
 
+# Arm CoreSight SoC-400 (debug subsystem)
+# The Arm IP itself lives under $ARM_IP_LIBRARY_PATH; this variable points
+# at the location where the rendered SoC-400 components are placed.
+export SOCLABS_SOC400_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/soc400"
+
 # SL AHB QPSPI
 export SOCLABS_AHB_QSPI_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/ahb_qspi"
 

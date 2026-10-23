@@ -11,6 +11,22 @@ wire [3:0]   QSPI_IO;
 wire  UARTTXD0;
 wire  UARTTXD0_RT;
 
+ // DAP (SWD / JTAG debug port) chip pads
+wire         DAP_nTRST;
+wire         DAP_SWCLK;
+wire         DAP_SWDIO;
+wire         DAP_TDI;
+wire         DAP_TDO;
+
+// The debug port is modelled as it appears on a real board: SWDIO is a
+// bidirectional line with a pull-up resistor and SWCLK is pulled down, so the
+// SW-DP always sees a defined level while neither the probe nor the target is
+// driving. Without the pull-up the undriven line is z, and the SW-DP line
+// reset detector (dbgdi | mask_dbg_di) turns that into x, corrupting the wire
+// reset state and knocking the SWJ-DP mode watcher out of Serial Wire mode.
+pullup   (DAP_SWDIO);
+pulldown (DAP_SWCLK);
+
 millisoc_chip_pads u_millisoc(
     .CLK(CLK),
     .nPORST(nPORST),
@@ -20,13 +36,152 @@ millisoc_chip_pads u_millisoc(
 
     .UARTTXD0(UARTTXD0),
 
-    .UARTTXD0_RT(UARTTXD0_RT)
+    .UARTTXD0_RT(UARTTXD0_RT),
+
+    .DAP_nTRST(DAP_nTRST),
+    .DAP_SWCLK(DAP_SWCLK),
+    .DAP_SWDIO(DAP_SWDIO),
+    .DAP_TDI(DAP_TDI),
+    .DAP_TDO(DAP_TDO)
 );
 
 millisoc_clkreset u_millisoc_clkreset(
     .CLK(CLK),
     .NRST(nPORST)
 );
+
+ // --------------------------------------------------------------------------------
+ // DAP (SWD / JTAG debug port) bus functional model
+ //
+ // Drives the SoC-400 SWJ-DP chip boundary pads and checks that the debug
+ // subsystem is reachable from the chip boundary: JTAG TAP IDCODE, DP power
+ // up handshake, DP address register and an AP register read back.
+ // --------------------------------------------------------------------------------
+
+wire dap_test_done;
+wire dap_test_pass;
+
+dap_swd_bfm u_dap_swd_bfm (
+    .swclk     (DAP_SWCLK),
+    .swdio     (DAP_SWDIO),
+    .tdi       (DAP_TDI),
+    .ntrst     (DAP_nTRST),
+    .tdo       (DAP_TDO),
+    .test_done (dap_test_done),
+    .test_pass (dap_test_pass)
+);
+
+always @(posedge CLK) begin
+    if (dap_test_done && !dap_test_pass) begin
+        $display("millisoc_tb: DAP bus functional model test FAILED");
+        $fatal(1, "millisoc_tb: DAP bus functional model test FAILED");
+    end
+end
+
+initial begin
+    #200000;
+    if (!dap_test_done || !dap_test_pass) begin
+        $fatal(1, "millisoc_tb: DAP BFM did not complete successfully before timeout");
+    end
+end
+
+ // TEMPORARY debug probe of the SWJ-DP TAP state machine
+`ifdef DAP_DEBUG
+always @(posedge DAP_SWCLK) begin
+    $display("[%0t] DAPDBG jtag_curr=%0d jtag_ir=%b tdo=%b ntdoen=%b jtagsel=%b tms=%b",
+             $time,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_jtag_dp_protocol.jtag_curr,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_jtag_dp_protocol.jtag_ir,
+             DAP_TDO,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.ntdoen,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.jtagsel,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.safetms);
+end
+
+// APB transactions to the Cortex-R5 external debug interface
+always @(posedge CLK) begin
+  if (u_millisoc.u_millisoc_system.R5_DBG_PSEL)
+    $display("[%0t] R5DBG psel=1 pen=%b wr=%b addr=0x%03x wdata=0x%08x pready=%b prdata=0x%08x err=%b",
+             $time,
+             u_millisoc.u_millisoc_system.R5_DBG_PENABLE,
+             u_millisoc.u_millisoc_system.R5_DBG_PWRITE,
+             {u_millisoc.u_millisoc_system.R5_DBG_PADDR, 2'b00},
+             u_millisoc.u_millisoc_system.R5_DBG_PWDATA,
+             u_millisoc.u_millisoc_system.R5_DBG_PREADY,
+             u_millisoc.u_millisoc_system.R5_DBG_PRDATA,
+             u_millisoc.u_millisoc_system.R5_DBG_PSLVERR);
+end
+
+// Internal state of the AP2 APB-AP while it is being exercised
+always @(posedge CLK) begin
+  if (u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapsels)
+    $display("[%0t] AP2DBG st=%b nst=%b trprog=%b trdone=%b rdy=%b err=%b en_sync=%b apb_acc=%b reg_acc=%b trig=%b apsel=%b abort=%b",
+             $time,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.cur_state,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.next_state,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.apb_tr_in_prog,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.apb_tr_done,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.dapready,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.dapslverr,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.device_en_sync,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.apb_access,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.reg_access,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.trig_sm,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap_ap_r5_ap.u_cxdapapbap_dap_if.ap_select,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapaborts);
+end
+
+// AHB transactions from the AHB access port to the Cortex-M85 EPPB
+always @(posedge CLK) begin
+  if (u_millisoc.u_millisoc_system.M85_DBG_HTRANS != 2'b00)
+    $display("[%0t] M85DBG htrans=%b hwrite=%b haddr=0x%08x hwdata=0x%08x hready=%b hrdata=0x%08x hresp=%b",
+             $time,
+             u_millisoc.u_millisoc_system.M85_DBG_HTRANS,
+             u_millisoc.u_millisoc_system.M85_DBG_HWRITE,
+             u_millisoc.u_millisoc_system.M85_DBG_HADDR,
+             u_millisoc.u_millisoc_system.M85_DBG_HWDATA,
+             u_millisoc.u_millisoc_system.M85_DBG_HREADY,
+             u_millisoc.u_millisoc_system.M85_DBG_HRDATA,
+             u_millisoc.u_millisoc_system.M85_DBG_HRESP);
+end
+
+// SW-DP and SWJ-DP mode watcher state while the port is out of its JTAG reset
+// state (i.e. as soon as the watcher notices a protocol switch attempt).
+// Sampled on the falling edge of SWCLK so that every value from the preceding
+// high phase has settled.
+always @(negedge DAP_SWCLK) begin
+  if (!(u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_swj_watcher.jtagsel === 1'b1 &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_swj_watcher.state === 10'b0))
+    $display("[%0t] SWDDBG mode=%0d jtagsel=%b wireset=%b dpst=%0d line=%b pull=%b mask=%b tgt_drive=%b rstcnt=%0d",
+             $time,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_swj_watcher.state,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_swj_watcher.jtagsel,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_swj_watcher.wirereset,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_sw_dp_protocol.state,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.swditms,
+             DAP_SWDIO,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_sw_dp_protocol.mask_dbg_di,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_sw_dp_protocol.dbg_do_en_int,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_dap.u_cxdapswjdp_swclktck.u_cxdapswjdp_sw_dp_protocol.reset_count_reg);
+end
+
+// DAPBUS transactions (AP select in dapcaddr[15:8])
+always @(posedge CLK) begin
+  if (u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapsels)
+    $display("[%0t] DPBUS addr=0x%04x ap=%0d bank=%0d reg=%0d en=%b wr=%b wdata=0x%08x rdata=0x%08x rdy=%b err=%b",
+             $time,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapcaddrs,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapcaddrs[15:8],
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapcaddrs[7:4],
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapcaddrs[3:2],
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapenables,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapwrites,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapwdatas,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.daprdatas,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapreadys,
+             u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.dapslverrs);
+end
+`endif
 
 
 sst26vf064b FLASH(

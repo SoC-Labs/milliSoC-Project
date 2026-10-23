@@ -2,5 +2,6 @@
 $(SOCLABS_PROJECT_DIR)/verif/monitors/uart_logger.v
 $(SOCLABS_PROJECT_DIR)/verif/monitors/axi3_logger.sv
 $(SOCLABS_PROJECT_DIR)/verif/monitors/axi4_logger.sv
+$(SOCLABS_PROJECT_DIR)/verif/monitors/dap_swd_bfm.sv
 $(SOCLABS_PROJECT_DIR)/verif/testbench/millisoc_tb.sv
 $(SOCLABS_PROJECT_DIR)/verif/control/millisoc_clkreset.v

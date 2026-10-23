@@ -60,7 +60,7 @@ MAKEFILE_FILELIST     := $(COCOTB_DIR)/makefile.flist
 MODULE ?= test_adp
 
 # Create a List of PHONY Targets
-.PHONY: compile_$(SIMULATOR) run_$(SIMULATOR) sim_$(SIMULATOR)
+.PHONY: compile_$(SIMULATOR) run_$(SIMULATOR) sim_$(SIMULATOR) build_soc400
 
 # ------- Simulator redirect -----------
 
@@ -77,7 +77,7 @@ compile_xm:  MILLISOC_DEFINES += IMEM_0_RAM_PRELOAD
 
 
 # Generate verilog .vc filelist from flists
-flist_vfiles_millisoc: gen_defs
+flist_vfiles_millisoc: build_soc400 gen_defs
 	echo $(FLIST_INCLUDES)
 	@if [ ! -d $(SIM_BUILD_DIR) ] ; then \
 	  mkdir -p $(SIM_BUILD_DIR); \
@@ -87,11 +87,16 @@ flist_vfiles_millisoc: gen_defs
 	fi
 	@cd $(SIM_BUILD_DIR); python $(SOCLABS_SOCTOOLS_FLOW_DIR)/bin/filelist_compile.py -f $(TBENCH_VC) -a -i $(FLIST_INCLUDES) -v -o tbench.vc
 
+# The SoC-400 sources are copied/rendered into a gitignored directory, so ensure
+# they are available before compiling any simulation filelist that references
+# them.
+build_soc400:
+	$(MAKE) -C $(SOCLABS_MILLISOC_TECH_DIR) build_soc400
 
 # ------- VCS -----------
 
 # Compile RTL
-compile_vcs : bootrom gen_defs  flist_vfiles_millisoc
+compile_vcs : build_soc400 bootrom gen_defs flist_vfiles_millisoc
 	cd $(SIM_BUILD_DIR); vcs $(VCS_OPTIONS) -f tbench.vc  -kdb $(DEFINES_VC)  | tee compile_vcs.log
 
 
@@ -124,7 +129,7 @@ $(MODELSIM_INI):
 	cd "$(SIM_BUILD_DIR)" && vmap work "$(WORK_LIB)"
 
 # Compile RTL
-compile_mti : bootrom gen_defs flist_vfiles_millisoc $(MODELSIM_INI)
+compile_mti : build_soc400 bootrom gen_defs flist_vfiles_millisoc $(MODELSIM_INI)
 	cd $(SIM_BUILD_DIR); vlog -modelsimini "$(MODELSIM_INI)" -work work -incr -lint +v2k  -f tbench.vc $(DEFINES_VC) | tee compile_mti.log
 
 # Run simulation in batch mode
