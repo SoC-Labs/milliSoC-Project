@@ -17,6 +17,13 @@ wire         DAP_SWCLK;
 wire         DAP_SWDIO;
 wire         DAP_TDI;
 wire         DAP_TDO;
+wire         TRACECLK;
+wire [3:0]   TRACEDATA;
+wire         TRACECTL;
+integer      trace_sample_count = 0;
+integer      m85_itm_trace_sample_count = 0;
+integer      m85_etm_trace_sample_count = 0;
+integer      r5_etm_trace_sample_count = 0;
 
 // The debug port is modelled as it appears on a real board: SWDIO is a
 // bidirectional line with a pull-up resistor and SWCLK is pulled down, so the
@@ -42,13 +49,49 @@ millisoc_chip_pads u_millisoc(
     .DAP_SWCLK(DAP_SWCLK),
     .DAP_SWDIO(DAP_SWDIO),
     .DAP_TDI(DAP_TDI),
-    .DAP_TDO(DAP_TDO)
+    .DAP_TDO(DAP_TDO),
+    .TRACECLK(TRACECLK),
+    .TRACEDATA(TRACEDATA),
+    .TRACECTL(TRACECTL)
 );
 
 millisoc_clkreset u_millisoc_clkreset(
     .CLK(CLK),
     .NRST(nPORST)
 );
+
+always @(posedge TRACECLK) begin
+    if (nPORST && (TRACECTL === 1'b0)) begin
+        trace_sample_count = trace_sample_count + 1;
+    end
+end
+
+always @(posedge CLK) begin
+    if (nPORST &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atvalid &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atready)
+        m85_itm_trace_sample_count = m85_itm_trace_sample_count + 1;
+
+    if (nPORST &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_etm_atvalid &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_etm_atready &&
+        (u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_etm_atid == 7'h22))
+        m85_etm_trace_sample_count = m85_etm_trace_sample_count + 1;
+
+    if (nPORST &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.r5_trace_atvalid &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.r5_trace_atready &&
+        (u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.r5_trace_atid == 7'h23))
+        r5_etm_trace_sample_count = r5_etm_trace_sample_count + 1;
+
+    if (nPORST &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.pseldbg &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.penabledbg &&
+        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.pwritedbg)
+        $display("ATB funnel APB write: address=0x%03h data=0x%08h",
+            u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.paddrdbg,
+            u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.pwdatadbg);
+end
 
  // --------------------------------------------------------------------------------
  // DAP (SWD / JTAG debug port) bus functional model
@@ -222,7 +265,33 @@ always @(posedge CLK or negedge nPORST) begin
         if (test_done && (~test_done_rt_sync))
             test_done_rt_sticky <= 1'b1;
         if (test_done_M && (~test_done_M_sync))
+        begin
             test_done_M_sticky <= 1'b1;
+            if (trace_sample_count == 0)
+            begin
+                $display("ATB funnel enables: %b%b%b; M85 ITM ATVALID/ATREADY: %b/%b; funnel ATVALID: %b",
+                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_2,
+                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_1,
+                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_0,
+                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atvalid,
+                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atready,
+                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.atvalidm);
+                $fatal(1, "TPIU produced no valid trace samples");
+            end
+            $display("TPIU PASS: %0d total valid trace samples", trace_sample_count);
+            if (m85_itm_trace_sample_count == 0)
+                $fatal(1, "M85 ITM produced no accepted trace beats");
+            $display("M85 ITM PASS: %0d accepted trace beats",
+                m85_itm_trace_sample_count);
+            if (m85_etm_trace_sample_count == 0)
+                $fatal(1, "M85 ETM produced no accepted trace beats with trace ID 0x22");
+            $display("M85 ETM PASS: %0d accepted trace beats",
+                m85_etm_trace_sample_count);
+            if (r5_etm_trace_sample_count == 0)
+                $fatal(1, "R5 ETM produced no accepted trace beats with trace ID 0x23");
+            $display("R5 ETM PASS: %0d accepted trace beats",
+                r5_etm_trace_sample_count);
+        end
     end
 end
 

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | DAP transport, AP0/AP2/AP3 identification, AP1 boot-ROM/TCM/SYS_CTRL accesses, and R5/M85 CPU-to-APBIC accesses are implemented and firmware-tested. AP1 access to the PL192 VIC (`RT_GIC`) remains unresolved; Stage 2 core control is also incomplete. See §5 and §7. |
+| **Status** | DAP transport, M85 ITM, and source-ID-tagged M85 ETM/R5 ETMR5 ATB activity are simulation-tested through the 3-source funnel and TPIU. Trace packet decoding and meaningful R5 instruction-trace coverage remain open. AP1 access to the PL192 VIC (`RT_GIC`) remains unresolved; Stage 2 core control is also incomplete. See §5 and §7. |
 | **Scope** | `millisoc_tech` RTL, build flow, `verif/` |
 | **Primary IP** | Arm CoreSight SoC-400 (`TM100-BU-50000-r3p2-50rel2`) |
 | **Last updated** | 2026-10-23 |
@@ -28,8 +28,8 @@
    milliSoC has a NIC400 `DEBUG` port reserved for this; AP1 is connected to it
    and reads/writes to ROM, TCM, and SYS_CTRL are verified. Access to the PL192
    VIC (`RT_GIC`) is not currently exposed through the generated DEBUG decoder.
-4. **Trace, later.** Processor trace interfaces (R5 `TRACECLKIN`/`TRACEDATA`, M85
-   CTI) are connected in later stages, once the debug path itself is proven.
+4. **Processor trace.** Route M85 ITM, M85 ETM, and R5 ETM sources through the
+   CoreSight funnel/TPIU path; verify each source and define production gating.
 
 ### 1.2 Non-goals for this plan
 
@@ -127,8 +127,11 @@ the VCS `hello` run in `simulate/sim/hello/logs/run_hello.log`.
   `0xB0000040`, with `STICKYORUN` set; this is not currently treated as a test
   failure.
 * No hardware debugger/OpenOCD run or physical pad/package validation has been
-  performed. Trace, authentication/security policy, production debug gating,
-  and post-silicon debugger documentation remain future work.
+  performed. The M85 ITM-to-TPIU software-trace path through the three-input
+  funnel passes simulation. M85/R5 ETM trace emission, trace protocol
+  checking/decoding, and physical pad validation remain open.
+  Authentication/security policy, production debug
+  gating, and post-silicon debugger documentation also remain future work.
 
 ### 2.3 Verified SoC-400 facts that constrain the design
 
@@ -311,7 +314,7 @@ identified and validated.
 
 | AP | `ap_sel` | Component | Target | Requirement served |
 |----|----------|-----------|--------|--------------------|
-| AP0 | 0 | `cxdapapbap` | `cxapbic_1` → debug APB fabric | CoreSight APB peripherals (CTI/ETF/TPIU in Stage 3) |
+| AP0 | 0 | `cxdapapbap` | `cxapbic_1` → debug APB fabric | APBIC ROM table and TPIU at `0xE00F_1000`; additional CTI/ETF targets remain future work |
 | AP1 | 1 | `cxdapaxiap` | NIC400 `DEBUG` AXI4 port (64-bit data) | **General system-bus access** |
 | AP2 | 2 | `cxdapapbap` | R5 External Debug Interface (APB slave) | **R5 core debug** |
 | AP3 | 3 | `cxdapahbap` | M85 EPPB (AHB slave of `olympus_dbg`) | **M85 core debug** |
@@ -330,14 +333,18 @@ component identification registers are at `0xE00F_0FF0`–`0xE00F_0FFC`.
 
 All three requesters feed the APBIC's single APB slave through a round-robin
 arbiter. The M85 APB address is reconstructed from its compressed EPPB address
-as `{PADDR31, 11'b0, PADDR[19:2], 2'b00}`. The APBIC `ROM_BASE_APBIC` value advertises
-`0xE00F_0000`. The APBIC's two downstream APB master ports remain unimplemented
-and return zero/ready, so this mapping currently exposes the ROM table rather
-than additional CoreSight peripherals. The DP registers remain accessible over
-the SWD/JTAG transport, not as part of this CPU-visible APB region.
+as `{PADDR31, 11'b0, PADDR[19:2], 2'b00}`. The APBIC `ROM_BASE_APBIC` value
+advertises `0xE00F_0000`. Master interface 0 routes to the TPIU at
+`0xE00F_1000`, master interface 1 routes to the ATB funnel at `0xE00F_2000`,
+and master interface 2 routes to ETMR5 at `0xE00F_3000`. The DP registers
+remain accessible over the SWD/JTAG transport, not as part of this CPU-visible
+APB region.
 The R5 MPU configures the 16 KiB region as non-shared device memory with full
 access and execution disabled. The M85 EPPB APB route was exercised by its
 firmware test, which read all four APBIC component-ID registers successfully.
+The M85 trace test also configures the TPIU through this APBIC route and
+observes active trace output; it does not yet read back the TPIU configuration
+registers.
 
 ### 3.4 Clocks, resets and power
 
@@ -593,9 +600,10 @@ reads it and writes to
   * `AuthenticationInterface = 0` (`dbgen`/`spiden` tied to constants).
 * Modify `millisoc_tech/socrates/soc400/cxdapbusic_1/cxdapbusic_1.xml`:
   `NUM_MASTER_INTF` 2 → **4**.
-* Re-render `cxapbic_1` only if the debug APB fabric needs more than 2 master
-  interfaces (Stage 3 will likely need 2 CTIs + 1 ETF ⇒ 3). Leave at 2 for
-  Stage 1-2 and revisit in Stage 3.
+*   The current `cxapbic_1` has three master interfaces: master 0 routes to the
+  TPIU at APBIC offset `0x1000`, master 1 routes to the ATB funnel at `0x2000`,
+  and master 2 routes to ETMR5 at `0x3000`. These routes are generated from the
+  component configuration and used by the integrated trace subsystem.
 
 #### 0.3 Filelist
 
@@ -869,21 +877,46 @@ single-step, and architectural register access.
 the SoC-level ROM table entries have not been populated and validated as a
 coherent debugger-visible enumeration of the APs and components.
 
-### Stage 3 — Trace — **NOT STARTED**
+### Stage 3 — Trace — **3-SOURCE RTL INTEGRATED; ALL SOURCES OBSERVED**
 
-*Out of scope for detailed planning here; sketched for completeness.*
+**Implemented:** The M85 ITM, M85 ETM, and R5 ETM ATB sources feed a
+three-input SoC-400 funnel, which feeds the TPIU's 32-bit ATB input. The M85
+ETM is enabled on the `OLYMPUS` instance with `.ETM(1)`; its licensed RTL is
+referenced from the separate ETM-M85 package. The R5 processor ETM interface is
+connected to licensed ETMR5 RTL, including its APB, power-up, wait-for-
+interrupt, debug-acknowledge, external-output, and trace handshakes. The
+APBIC maps TPIU, funnel, and ETMR5 to `0xE00F_1000`, `0xE00F_2000`, and
+`0xE00F_3000` respectively. The funnel receives all three sources and the
+TPIU remains exposed on the existing four-bit trace pins.
 
-* R5: connect `TRACECLKIN` (currently undriven at `millisoc_system.sv:187`) and
-  the R5's `TRACEDATA[7:0]` to a CoreSight funnel. The raw `CORTEXR5` core
-  exposes `TRACECLKIN`/`TRACEDATA`; the `CORTEXR5INTEGRATION` wrapper is not
-  instantiated, so the trace pins must be located on the core instance.
-* M85: `CTICHIN`/`CTICHOUT`/`CTIIRQ` are currently left open
-  (`millisoc_cpu_ss.v`); the M85 config has `ETM: FALSE`, `ETB: FALSE`,
-  `TPIUM: FALSE`, so enabling trace requires changing `m85_config.yaml` and
-  re-running `build_m85`.
-* Add `cxcti` per core, a `cxatbfunnel`, a `cxetb` (ETF), and a `cxtpiu`.
-* This will require `cxapbic_1` to be re-rendered with more master interfaces
-  (see §0.2) and the debug APB fabric (AP0) to actually be populated.
+**Verified:** M85 firmware reads ETMR5 Peripheral ID 0 and Component ID 0
+through APBIC master 2, unlocks the funnel at offset `0xFB0`, enables its
+three input ports, configures the TPIU, and emits the `"M85 ITM trace"` marker.
+It also configures the M85 ETM with trace ID `0x22` and programs the R5 ETMR5
+through its APB window using the ETMv3 control, trace-enable-event, and ATID
+registers (trace ID `0x23`). The `hello` simulation passes the DAP tests and
+observes **2,304 total valid TPIU samples**, **26 accepted M85 ITM beats**,
+**545 accepted M85 ETM beats with ID `0x22`**, and **2 accepted R5 ETMR5 beats
+with ID `0x23`**. Thus each source handshakes through the funnel with its
+expected ID; the R5 observation is low-volume and does not yet establish
+decoded instruction-packet coverage. VCS compile/elaboration passes. The R5
+`NIDEN0` input is currently tied high to permit non-invasive trace; `DBGEN0`
+remains low. This is an integration setting, not a production debug security
+policy.
+
+**Remaining work:**
+
+* Add APB/ATB protocol checkers and verify TPIU control-register readback.
+* Capture/decode the parallel stream and assert the known ITM marker and ETM
+  packet content; current source checks assert accepted ATB beats and trace IDs,
+  not decoded packets.
+* Add/validate pad cells and a board pin assignment for the exposed trace pins;
+  current validation is RTL simulation only.
+* Increase R5 ETMR5 capture duration or enable it earlier so simulation verifies
+  sustained R5 instruction trace rather than the current two accepted beats.
+* Decide how `NIDEN0` is gated for production; it is always enabled in this
+  integration so far. `DBGEN0` remains disabled.
+* CTI integration and cross-trigger behavior are unimplemented.
 
 ### Stage 4 — Hardening, discovery and documentation — **NOT STARTED**
 
@@ -909,14 +942,16 @@ There is **no debugger in the repository**. The realistic options are:
 | **A. SWD/JTAG BFM (recommended)** | Write a SystemVerilog bus-functional model in `verif/monitors/` that drives the SWD pins and performs DP/AP transactions, checking responses. | ~400-600 lines, no external deps | Best for CI and for regression; directly tests the SoC-400 integration. |
 | B. Arm CXDT | Arm's CoreSight eXternal Debug Tool, present at `/research/AAA/ip_library/SoC-400/coresight_soc/shared/validation/{models/cxdt,tests/cxdt}`. | Unknown — likely requires Arm-internal tooling/licences | Probably not runnable here. Keep as a reference. |
 | C. OpenOCD | Real debugger over the SWD pads. | Needs a board or a socket-based harness | The best *end* goal; out of reach until there is hardware. |
-| D. Arm protocol checkers | `shared/validation/protocol_checkers/{apbpc,atbpc}` — APB/ATB protocol checkers shipped with SoC-400. | Low | Should be instantiated in the TB for APB and ATB (Stage 3). |
+| D. Arm protocol checkers | `shared/validation/protocol_checkers/{apbpc,atbpc}` — APB/ATB protocol checkers shipped with SoC-400. | Low | Not instantiated yet; remains useful for Stage 3 hardening. |
 
 **Status:** Option A is implemented as
 `verif/monitors/dap_swd_bfm.sv` (one module with inline transaction/check
 tasks; no separate package). It currently covers JTAG and SWD identification,
-DP setup, AP IDs, R5 component IDs, and the M85 ROM table. APB/AXI protocol
-checkers and a real debugger are not part of the current verified coverage.
-Option C remains the eventual hardware goal.
+DP setup, AP IDs, R5 component IDs, and the M85 ROM table. Trace checks count
+TPIU output cycles and accepted M85 ITM, M85 ETM, and R5 ETMR5 source beats
+with the configured ETM IDs; they do not decode trace packets. APB/ATB
+protocol checkers and a real debugger are not part of the current verified
+coverage. Option C remains the eventual hardware goal.
 
 ### 6.2 Test list
 
@@ -935,6 +970,9 @@ Option C remains the eventual hardware goal.
 | T2.4 | M85 halt via AP3 | 2 | M85 stops fetching after a halt request. | **Not tested.** |
 | T2.5 | M85 `MCUROMADDR` reachable | 2 | `0xE00FE000` returns expected M85 internal debug values. | **Not tested** — current checks target the EPPB ROM table at `0xE00FF000`. |
 | T2.6 | Memory view via AP1 while cores run | 2 | TCM/SRAM reads are consistent and do not disturb running cores. | **Partial pass** — safe ITCM/ATCM write/read checks complete and the normal boot/hello output follows; broader coherence/traffic testing remains. |
+| T3.1 | M85 ITM-to-TPIU software trace through funnel | 3 | M85 firmware unlocks/enables the funnel, emits a marker, and the testbench observes accepted ITM beats and valid trace-port cycles before M85 completion. | **Pass** — 26 accepted ITM source beats and 2,304 total valid TPIU samples; marker decoding and TPIU register readback remain open. |
+| T3.2 | R5 ETMR5 APB identification route | 3 | M85 reads ETMR5 Peripheral ID 0 and Component ID 0 through APBIC master 2. | **Pass** — firmware reports `R5 ETMR5 APB PASS` in `hello` simulation. |
+| T3.3 | M85 ETM and R5 ETMR5 trace emission | 3 | Configure each ETM, observe each source through the funnel, and identify its trace ID. | **Pass (source handshakes only)** — 545 M85 ETM beats with ID `0x22` and 2 R5 ETMR5 beats with ID `0x23`; R5 sustained instruction coverage and packet decoding remain open. |
 
 ### 6.3 Debugger bring-up (post-silicon)
 
@@ -959,7 +997,7 @@ documented SWD pin-out.
 | R8 | The SoC-400 generic cells (`cx_sync`, `cx_en_sync`, `cx_cdc_corrupt_gry`, `cxdapswjdp_dp_sync`, `cxdapswjdp_clk_inverter`) are not in the repo. | Compile errors. | **Resolved for this build:** static-cell copy script/filelist exist and the VCS compile/run pass. |
 | R9 | Debug subsystem elaboration and integration. | Unknown compile errors or disconnected paths. | **Resolved for simulation baseline:** module is instantiated and the VCS `hello` run passes. Extend regression checks as Stage 1/2 proceed. |
 | R10 | `flows/simulate.mk`'s `run_cocotb` target references `verif/cocotb/`, which does not exist in this repo. | Cannot use the project's cocotb flow as-is. | The plan writes the BFM in SystemVerilog (§0.6) and drives it from the existing testbench, so the broken cocotb target is not on the critical path. Creating `verif/cocotb/` is a viable alternative if the team prefers Python. |
-| R11 | `TRACECLKIN` is an undriven wire (`millisoc_system.sv:187`) — a latent X-propagation hazard if it is ever connected to a simulated trace component. | Trace component sees X on the clock. | Resolve in Stage 3 by giving it a real source. |
+| R11 | Trace clock source and output path. | X-propagation or undriven trace pins. | **Resolved for simulation baseline:** `TRACECLKIN` is driven by `FCLK`; the TPIU trace outputs are exposed and the testbench observes valid samples. Independent trace-clock and physical pad validation remain open. |
 | R12 | Debug access is a security exposure if left permanently enabled. | Inappropriate for a production ASIC. | Build-time `DEBUG_ACCESS` parameter (Stage 4); document prominently. |
 
 ### Resolved decisions and remaining questions
@@ -1067,7 +1105,7 @@ Decode map `adp_map`: `0x00000000–0x3FFFFFFF` → `CPU_S`;
 | `millisoc_tech/socrates/soc400/cxdapbusic_1/cxdapbusic_1.xml` | Configure DAPBUS for four APs. |
 | `env/dependency_env.sh`, `millisoc_tech/flist/millisoc_top.flist`, `flist/millisoc_tb.flist` | Build environment and filelist integration. |
 | `flows/simulate.mk` | Run `build_soc400` before filelist expansion and VCS/Questa compilation. |
-| `verif/monitors/dap_swd_bfm.sv`, `verif/testbench/millisoc_tb.sv` | JTAG/SWD BFM, current checks, and testbench debug instrumentation/logging. |
+| `verif/monitors/dap_swd_bfm.sv`, `verif/testbench/millisoc_tb.sv` | JTAG/SWD BFM, current checks, funnel-programming diagnostics, and trace-cycle assertion. |
 | `millisoc_tech/logical/soc400/static/**`, `millisoc_tech/logical/soc400/logical/**` | Locally copied/rendered SoC-400 sources; generated/vendor sources are not all tracked. |
 
 The BFM helper package shown in the original proposal was not created; the
@@ -1085,5 +1123,6 @@ transaction/check tasks currently live in `dap_swd_bfm.sv`.
 * Add parity/error-path coverage and sticky-status checks; add debug-traffic
   assertions/protocol checking where useful. BFM completion timeout is now
   enforced by the testbench.
-* Implement trace, production debug gating/authentication, physical pad
-  integration, and post-silicon debugger documentation.
+* Decode ITM/ETM trace packets, strengthen R5 instruction-trace coverage, set
+  production debug gating/authentication, validate physical pad integration,
+  and complete post-silicon debugger documentation.
