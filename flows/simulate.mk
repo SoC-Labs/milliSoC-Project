@@ -77,7 +77,7 @@ compile_xm:  MILLISOC_DEFINES += IMEM_0_RAM_PRELOAD
 
 
 # Generate verilog .vc filelist from flists
-flist_vfiles_millisoc: build_soc400 gen_defs
+flist_vfiles_millisoc: gen_defs
 	echo $(FLIST_INCLUDES)
 	@if [ ! -d $(SIM_BUILD_DIR) ] ; then \
 	  mkdir -p $(SIM_BUILD_DIR); \
@@ -96,7 +96,7 @@ build_soc400:
 # ------- VCS -----------
 
 # Compile RTL
-compile_vcs : build_soc400 bootrom gen_defs flist_vfiles_millisoc
+compile_vcs : bootrom gen_defs flist_vfiles_millisoc
 	cd $(SIM_BUILD_DIR); vcs $(VCS_OPTIONS) -f tbench.vc  -kdb $(DEFINES_VC)  | tee compile_vcs.log
 
 
@@ -129,7 +129,7 @@ $(MODELSIM_INI):
 	cd "$(SIM_BUILD_DIR)" && vmap work "$(WORK_LIB)"
 
 # Compile RTL
-compile_mti : build_soc400 bootrom gen_defs flist_vfiles_millisoc $(MODELSIM_INI)
+compile_mti : bootrom gen_defs flist_vfiles_millisoc $(MODELSIM_INI)
 	cd $(SIM_BUILD_DIR); vlog -modelsimini "$(MODELSIM_INI)" -work work -incr -lint +v2k  -f tbench.vc $(DEFINES_VC) | tee compile_mti.log
 
 # Run simulation in batch mode

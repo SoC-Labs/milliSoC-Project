@@ -24,6 +24,7 @@ export SOCLABS_WRAPPER_TECH_DIR="$SOCLABS_PROJECT_DIR/accelerator_wrapper_tech"
 # millisoc
 export SOCLABS_MILLISOC_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech"
 export SOCLABS_MILLISOC_SDK_DIR="$SOCLABS_PROJECT_DIR/millisoc_sdk"
+export SOCLABS_ETHOS_U85_DIR="$SOCLABS_MILLISOC_TECH_DIR/logical/ethos_u85"
 # SoCDebug
 export SOCLABS_SOCDEBUG_TECH_DIR="$SOCLABS_PROJECT_DIR/millisoc_tech/logical/socdebug_tech"
 

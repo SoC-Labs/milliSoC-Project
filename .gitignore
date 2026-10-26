@@ -1,5 +1,12 @@
 .socinit
 
+fpga/ARM_MPS3/.Xil
+fpga/ARM_MPS3/vivado_project
+fpga/ARM_MPS3/src
+fpga/ARM_MPS3/*.jou
+fpga/ARM_MPS3/*.log
+fpga/ARM_MPS3/flist
+
 simulate
 
 top/logical/gen_defines.v

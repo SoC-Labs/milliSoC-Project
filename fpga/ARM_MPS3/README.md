@@ -1,0 +1,1 @@
+Part is: Kintex Ultrascale/FLVB1760/-1/C/xcku115: xcku115-flvb1760-1-c

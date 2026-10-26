@@ -5,13 +5,16 @@ export CORTEX_M85_DAPLITE_DIR
 export CORTEX_M85_ETM_LOGICAL_DIR
 export CORTEX_R5_LOGICAL_DIR
 export CORTEX_R5_ETM_LOGICAL_DIR
-
+export SIE300_IP_LOGICAL_DIR
 export CPU_TYPE
 export R_CPU_TYPE
 # Directory to put simulation files
 SIM_TOP_DIR ?= $(SOCLABS_PROJECT_DIR)/simulate/sim
 SIM_DIR      = $(SIM_TOP_DIR)/$(TESTNAME)
 SIM_BUILD_DIR = $(SIM_TOP_DIR)/build
+DESIGN_VC ?= $(SOCLABS_PROJECT_DIR)/flist/top_BEHAV.flist
+DESIGN_VC_FPGA ?= $(SOCLABS_PROJECT_DIR)/flist/top_BEHAV.flist
+
 TBENCH_VC ?= $(SOCLABS_PROJECT_DIR)/flist/top_BEHAV.flist
 SIM?=vcs
 export SIM
@@ -86,3 +89,6 @@ gen_defs:
 
 get_flash_model:
 	make -C $(SOCLABS_AHB_QSPI_DIR) get_flash_model
+
+first_time_setup:
+	make -C $(SOCLABS_MILLISOC_TECH_DIR) build_nic400

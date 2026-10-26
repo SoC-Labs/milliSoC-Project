@@ -267,30 +267,32 @@ always @(posedge CLK or negedge nPORST) begin
         if (test_done_M && (~test_done_M_sync))
         begin
             test_done_M_sticky <= 1'b1;
-            if (trace_sample_count == 0)
-            begin
-                $display("ATB funnel enables: %b%b%b; M85 ITM ATVALID/ATREADY: %b/%b; funnel ATVALID: %b",
-                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_2,
-                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_1,
-                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_0,
-                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atvalid,
-                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atready,
-                    u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.atvalidm);
-                $fatal(1, "TPIU produced no valid trace samples");
+            if ($test$plusargs("TRACE")) begin
+                if (trace_sample_count == 0)
+                begin
+                    $display("ATB funnel enables: %b%b%b; M85 ITM ATVALID/ATREADY: %b/%b; funnel ATVALID: %b",
+                        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_2,
+                        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_1,
+                        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.u_cxatbfunnel_reg_blk.en_port_int_0,
+                        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atvalid,
+                        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.m85_trace_atready,
+                        u_millisoc.u_millisoc_system.u_millisoc_debug_subsystem.u_trace_funnel.atvalidm);
+                    $fatal(1, "TPIU produced no valid trace samples");
+                end
+                $display("TPIU PASS: %0d total valid trace samples", trace_sample_count);
+                if (m85_itm_trace_sample_count == 0)
+                    $fatal(1, "M85 ITM produced no accepted trace beats");
+                $display("M85 ITM PASS: %0d accepted trace beats",
+                    m85_itm_trace_sample_count);
+                if (m85_etm_trace_sample_count == 0)
+                    $fatal(1, "M85 ETM produced no accepted trace beats with trace ID 0x22");
+                $display("M85 ETM PASS: %0d accepted trace beats",
+                    m85_etm_trace_sample_count);
+                if (r5_etm_trace_sample_count == 0)
+                    $fatal(1, "R5 ETM produced no accepted trace beats with trace ID 0x23");
+                $display("R5 ETM PASS: %0d accepted trace beats",
+                    r5_etm_trace_sample_count);
             end
-            $display("TPIU PASS: %0d total valid trace samples", trace_sample_count);
-            if (m85_itm_trace_sample_count == 0)
-                $fatal(1, "M85 ITM produced no accepted trace beats");
-            $display("M85 ITM PASS: %0d accepted trace beats",
-                m85_itm_trace_sample_count);
-            if (m85_etm_trace_sample_count == 0)
-                $fatal(1, "M85 ETM produced no accepted trace beats with trace ID 0x22");
-            $display("M85 ETM PASS: %0d accepted trace beats",
-                m85_etm_trace_sample_count);
-            if (r5_etm_trace_sample_count == 0)
-                $fatal(1, "R5 ETM produced no accepted trace beats with trace ID 0x23");
-            $display("R5 ETM PASS: %0d accepted trace beats",
-                r5_etm_trace_sample_count);
         end
     end
 end
