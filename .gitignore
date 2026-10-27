@@ -1,5 +1,7 @@
 .socinit
 
+build
+
 fpga/ARM_MPS3/.Xil
 fpga/ARM_MPS3/vivado_project
 fpga/ARM_MPS3/src

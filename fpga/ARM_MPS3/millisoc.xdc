@@ -25,6 +25,28 @@ create_clock -period 40.000 -name cfgclk [get_ports CFG_CLK]
 # TIMING CONSTRAINTS
 #****************************************************************************************
 
+create_generated_clock -name QSPI_SCLK -source [get_ports {OSCCLK[1]}] -divide_by 2 [get_pins u_millisoc/u_ahb_qspi/u_qspi_clock_div/QSPI_SCLK_i]
+create_generated_clock -name QSPI_CLK_o -source [get_pins u_millisoc/u_ahb_qspi/u_qspi_clock_div/QSPI_SCLK_i] -divide_by 1 [get_ports QSPI_SCLK]
+
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D0]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D0]
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D1]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D1]
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D2]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D2]
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D3]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D3]
+
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D0]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D0]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D1]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D1]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D2]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D2]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D3]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D3]
+
+
 #****************************************************************************************
 # Define false paths between async clock groups.
 #****************************************************************************************

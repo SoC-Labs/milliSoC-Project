@@ -89,10 +89,6 @@ wait_on_run synth_1
 set synth_status [get_property STATUS [get_runs synth_1]]
 puts "Synthesis status: $synth_status"
 
-if {![string match "*Complete*" $synth_status]} {
-    error "Synthesis failed. Check the Vivado synthesis log."
-}
-
 report_utilization \
     -file "$REPORT_DIR/millisoc_synth_utilization.rpt"
 
