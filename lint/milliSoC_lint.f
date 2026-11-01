@@ -24,3 +24,9 @@ $(SOCLABS_PROJECT_DIR)/system/src/bootrom/verilog/bootrom.sv
 
 $(SOCLABS_AHB_QSPI_DIR)/logical/top_ahb_qspi/logical/top_ahb_qspi.v
 $(SOCLABS_MILLISOC_TECH_DIR)/logical/nic400_millisoc_main/logical/nic400_millisoc_main/nic400/verilog/nic400_millisoc_main.v
+
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/memory_integrations/generic/cortexr5_tcm.v
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/memory_integrations/generic/dtcm.v
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/memory_integrations/generic/itcm.v
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/memory_integrations/generic/spram.v
+$(SOCLABS_MILLISOC_TECH_DIR)/logical/memory_integrations/generic/SRAM.v

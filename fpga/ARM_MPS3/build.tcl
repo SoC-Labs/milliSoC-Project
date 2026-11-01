@@ -89,18 +89,6 @@ wait_on_run synth_1
 set synth_status [get_property STATUS [get_runs synth_1]]
 puts "Synthesis status: $synth_status"
 
-report_utilization \
-    -file "$REPORT_DIR/millisoc_synth_utilization.rpt"
-
-report_utilization -hierarchical \
-    -file "$REPORT_DIR/millisoc_synth_hierarchical_utilization.rpt"
-
-report_timing_summary \
-    -file "$REPORT_DIR/millisoc_synth_timing.rpt"
-
-report_io \
-    -file "$REPORT_DIR/millisoc_io.rpt"
-
 # ----------------------------
 # Implementation + bitstream
 # ----------------------------
@@ -115,29 +103,6 @@ if {![string match "*Complete*" $impl_status]} {
     error "Implementation failed. Check the Vivado implementation log."
 }
 
-
-# Resource utilization
-report_utilization \
-    -file "$REPORT_DIR/millisoc_impl_utilization.rpt"
-
-report_utilization -hierarchical \
-    -file "$REPORT_DIR/millisoc_impl_hierarchical_utilization.rpt"
-
-# Timing analysis
-report_timing_summary \
-    -delay_type min_max \
-    -report_unconstrained \
-    -file "$REPORT_DIR/millisoc_impl_timing.rpt"
-
-# Detailed worst timing paths
-report_timing \
-    -delay_type max \
-    -max_paths 20 \
-    -file "$REPORT_DIR/millisoc_critical_paths.rpt"
-
-# Design rule checks
-report_drc \
-    -file "$REPORT_DIR/millisoc_drc.rpt"
 
 # ----------------------------
 # Reports

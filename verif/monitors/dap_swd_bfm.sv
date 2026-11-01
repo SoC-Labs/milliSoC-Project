@@ -646,11 +646,11 @@ module dap_swd_bfm #(
     ap_select(AP_AXI, 4'd0);
     ap_check_read(32'hFFFF_0000, BOOTROM_FIRST_WORD,
                   "AP1 NIC400 DEBUG boot ROM read");
-    ap_mem_write(32'h0000_FFFC, 32'hA185_CAFE);
-    ap_check_read(32'h0000_FFFC, 32'hA185_CAFE,
+    ap_mem_write(32'h0000_3FF8, 32'hA185_CAFE);
+    ap_check_read(32'h0000_3FF8, 32'hA185_CAFE,
                   "AP1 NIC400 DEBUG M85 ITCM write/read");
-    ap_mem_write(32'h8000_3FFC, 32'hA5C5_3C5A);
-    ap_check_read(32'h8000_3FFC, 32'hA5C5_3C5A,
+    ap_mem_write(32'h8000_3FF8, 32'hA5C5_3C5A);
+    ap_check_read(32'h8000_3FF8, 32'hA5C5_3C5A,
                   "AP1 NIC400 DEBUG R5 ATCM write/read");
     ap_check_read(32'h4403_0004, 32'h0000_0001,
                   "AP1 NIC400 DEBUG SYS_CTRL CPUWAIT read");

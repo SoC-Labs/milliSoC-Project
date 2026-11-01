@@ -420,7 +420,7 @@ axi3_logger #(
 
  // -- AXI3: NIC400 -> R5 subsystem subordinate port (inbound accesses to R5 TCM etc.)
 axi3_logger #(
-    .NAME("r5_subord"), .ID_W(8), .DATA_W(64)
+    .NAME("r5_subord"), .ID_W(3), .DATA_W(64)
 ) u_axi3_r5_subord (
     .ACLK(CLK),
     .ARESETn(u_millisoc.u_millisoc_system.nSYSRESET),
