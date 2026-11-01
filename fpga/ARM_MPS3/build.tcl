@@ -82,6 +82,8 @@ if {[file exists $XDC_FILE]} {
 # ----------------------------
 # Synthesis
 # ----------------------------
+# Configure the synthesis run to use auto gated clock conversion
+set_property -name {STEPS.SYNTH_DESIGN.ARGS.GATED_CLOCK_CONVERSION} -value {auto} -objects [get_runs synth_1]
 
 launch_runs synth_1 -jobs 8
 wait_on_run synth_1

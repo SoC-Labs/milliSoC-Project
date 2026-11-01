@@ -91,4 +91,6 @@ get_flash_model:
 	make -C $(SOCLABS_AHB_QSPI_DIR) get_flash_model
 
 first_time_setup:
+	make -C $(SOCLABS_MILLISOC_TECH_DIR) make_project
 	make -C $(SOCLABS_MILLISOC_TECH_DIR) build_nic400
+	make -C $(SOCLABS_MILLISOC_TECH_DIR) build_u85

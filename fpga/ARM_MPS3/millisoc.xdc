@@ -21,6 +21,10 @@ create_clock -period 25.000 -name smbmclk [get_ports SMBM_CLK]
 #CFGCLK 	(no Global Clock pin)		25		MHz
 create_clock -period 40.000 -name cfgclk [get_ports CFG_CLK]
 
+# JTAG Clock
+create_clock -period 50.000 -name jtag_clk [get_ports CS_TCK]
+
+
 #****************************************************************************************
 # TIMING CONSTRAINTS
 #****************************************************************************************
@@ -51,7 +55,7 @@ set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D3]
 # Define false paths between async clock groups.
 #****************************************************************************************
 
-set_clock_groups -name aclk_grp -asynchronous -group [get_clocks oscclk_1]
+set_clock_groups -name aclk_grp -asynchronous -group [get_clocks oscclk_1 jtag_clk]
 
 ###############################################################################
 # Define false paths between async clock groups.
