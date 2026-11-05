@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **Status** | DAP transport, M85 ITM, and source-ID-tagged M85 ETM/R5 ETMR5 ATB activity are simulation-tested through the 3-source funnel and TPIU. Trace packet decoding and meaningful R5 instruction-trace coverage remain open. AP1 access to the PL192 VIC (`RT_GIC`) remains unresolved; Stage 2 core control is also incomplete. See §5 and §7. |
+| **Status** | DAP transport, AP2 R5 and AP3 M85 ROM-table discovery, M85 ITM, and source-ID-tagged M85 ETM/R5 ETMR5 ATB activity are simulation-tested. Trace packet decoding and meaningful R5 instruction-trace coverage remain open. AP1 access to the PL192 VIC (`RT_GIC`) remains unresolved. Independent debugger-requested R5/M85 reset, core control, and production authorization are not implemented. See §5 and §7. |
 | **Scope** | `millisoc_tech` RTL, build flow, `verif/` |
 | **Primary IP** | Arm CoreSight SoC-400 (`TM100-BU-50000-r3p2-50rel2`) |
-| **Last updated** | 2026-10-23 |
+| **Last updated** | 2026-11-05 |
 
 ---
 
@@ -33,9 +33,10 @@
 
 ### 1.2 Non-goals for this plan
 
-* No authentication (ARMv8-M / `spiden` trust-on-boot) implementation. The SoC-400
-  AXI-AP has `dbgen`/`spiden` inputs tied to constants in the current RTL; a
-  production policy is deferred to Stage 4.
+* No production authentication policy. The AP enable inputs and processor debug
+  enables are currently constants; a production policy is deferred to Stage 4.
+* No power-gating implementation. DP power-up acknowledgements currently model
+  always-on debug and system domains, not switched power domains.
 * No silicon-level security hardening. Current constant ties are not a
   production debug-access policy; define and document gating before tapeout.
 * No replacement of the existing PL192 VIC-based interrupt scheme.
@@ -55,11 +56,12 @@
 
 ---
 
-## 2. Current state (verified 2026-10-23)
+## 2. Current state (verified 2026-11-05)
 
 The implementation has progressed beyond the original skeleton/proposal. The
 following status is based on the current RTL, build integration, BFM source, and
-the VCS `hello` run in `simulate/sim/hello/logs/run_hello.log`.
+the VCS `hello` run in `simulate/sim/hello/logs/run_hello.log`. Dated status
+entries should be refreshed when rerunning these checks.
 
 ### 2.1 Implemented and simulation-verified
 
@@ -74,8 +76,8 @@ the VCS `hello` run in `simulate/sim/hello/logs/run_hello.log`.
   CDC bridge in this configuration.
 * JTAG and SWD pads are connected through the generic PHY. The testbench
   provides SWDIO pull-up and SWCLK pull-down models. JTAG TAP IDCODE, SWD
-  DPIDR, DP power-up status, AP0 identification, R5 debug-component ID
-  registers, and the M85 ROM-table entry/CIDs all pass.
+  DPIDR, DP power-up status, AP0 identification, the AP2 R5 ROM table and
+  component IDs, and the AP3 M85 ROM table and component IDs pass.
 * The R5 EDI path and M85 EPPB path are wired and the tested AP2/AP3 reads
   complete. `PCLKENDBG` is asserted.
 * The latest `make compile SIMULATOR=vcs` completed, and
@@ -112,20 +114,32 @@ the VCS `hello` run in `simulate/sim/hello/logs/run_hello.log`.
 * The root VCS and Questa compile targets now invoke `build_soc400` before
   compiling, so the ignored SoC-400 sources are regenerated as part of the
   normal compile flow. This was exercised in the latest compile.
-* Core control is not demonstrated. AP2 reads R5 CoreSight identification
-  registers, not architectural registers or halt/single-step state. The R5
-  `DBGROMADDR`/`DBGROMADDRV`, `DBGSELFADDR0`/`DBGSELFADDRV0`, and `DBGEN0`
-  remain tied off/disabled in `millisoc_system.sv`.
+* Core control is not demonstrated. AP2 reads the R5 ROM table and EDI
+  identification registers, but not architectural registers or halt/single-step
+  state. `DBGROMADDR`/`DBGROMADDRV` advertise the R5 table at `0x00001000`;
+  `DBGSELFADDR0`/`DBGSELFADDRV0` are still zero/invalid and `DBGEN0` is low.
 * AP3 has demonstrated access to the M85 EPPB ROM table and component IDs, but
-  not M85 halt, resume, single-step, or core-register access.
-* The SoC-level APBIC ROM table has not been populated and verified as a
-  coherent enumeration of APs/components.
+  not M85 halt, resume, single-step, or core-register access. The M85 core's
+  `DBGEN` and `SPIDEN` are tied high; the AP3 AHB-AP has `dbgen=1` and
+  `spiden=0`. These constants are not a production authorization policy.
+* There is no independent core reset control. R5 and M85 functional resets
+  share `nSYSRESET`; M85 `CPUWAIT` can hold/release the core but is not a reset.
+  The DAP's `CDBGRSTREQ` is not connected to a reset controller.
+* AP2 and AP3 tables are individually advertised and tested; AP0's APBIC ROM
+  table is still not verified as a reachable, coherent top-level enumeration.
+* The R5 table at AP2-relative `0x00001000` is a local APB decode in the debug
+  subsystem, not a system-memory-mapped ROM. It advertises the R5 EDI at AP2
+  address zero and supplies the table's CoreSight identification registers.
 * The BFM is a single SystemVerilog module; the planned `dap_swd_bfm_pkg.sv`
   and separate scoreboard were not added. SWD read parity is not checked,
   WAIT/FAULT retry behavior is not exercised, byte/halfword transfers are not
   covered, and the BFM only checks `STICKYERR`. The latest final DP status is
   `0xB0000040`, with `STICKYORUN` set; this is not currently treated as a test
   failure.
+* Debug/system power domains are always on in this design: DP power-up
+  acknowledgements are tied high, `CDBGRSTACK` is tied low, and no power
+  controller is present. AP debug-enable inputs are also tied to constants;
+  this is not production authorization.
 * No hardware debugger/OpenOCD run or physical pad/package validation has been
   performed. The M85 ITM-to-TPIU software-trace path through the three-input
   funnel passes simulation. M85/R5 ETM trace emission, trace protocol
@@ -221,12 +235,11 @@ bug), `PADDRDBG310`, `DBGROMADDR[31:12]`, `DBGROMADDRV`, `DBGSELFADDR0[31:12]`,
 out: `PRDATADBG0[31:0]`, `PREADYDBG0`, `PSLVERRDBG0`, `DBGACK0`, `DBGTRIGGER0`,
 `DBGRESTARTED0`, `DBGRSTREQ0`, `COMMRX0`, `COMMTX0`.
 
-*Cortex-M85* (`OLYMPUS_MCU.sv`): MCU debug APB master outputs `PSEL`, `PENABLE`,
-`PWRITE`, `PADDR[19:2]`, `PADDR31`, `PSTRB[3:0]`, `PWDATA[31:0]`; inputs `PREADY`,
-`PRDATA[31:0]`, `PSLVERR`. The M85's CTI pins (`CTICHIN`, `CTICHOUT`, `CTIIRQ`) are
-left open. The M85 also contains an **integrated `olympus_dap`** (SWJ-DP + AHB
-master); its DP registers and MCU ROM table are reachable through the MCU debug
-APB at `MCUROMADDR` = `0xE00FE000`.
+*Cortex-M85* (the current `OLYMPUS` instantiation): AP3's AHB master reaches
+the M85 EPPB. The instantiated processor-level ROM table is at `0xE00FF000`
+and is checked through AP3. The separate `OLYMPUS_MCU` wrapper's MCU-level
+ROM table at `0xE00FE000` is not present in the current system; do not treat it
+as an implemented/debugger-visible address. M85 CTI integration remains open.
 
 **NIC400 DEBUG port** — `nic400_millisoc_main.v:558-592`:
 AXI4, `WDATA/RDATA[63:0]`, `AWADDR/ARADDR[31:0]`, and **`AWID/ARID/BID/RID[1:0]`
@@ -316,7 +329,7 @@ identified and validated.
 |----|----------|-----------|--------|--------------------|
 | AP0 | 0 | `cxdapapbap` | `cxapbic_1` → debug APB fabric | APBIC ROM table and TPIU at `0xE00F_1000`; additional CTI/ETF targets remain future work |
 | AP1 | 1 | `cxdapaxiap` | NIC400 `DEBUG` AXI4 port (64-bit data) | **General system-bus access** |
-| AP2 | 2 | `cxdapapbap` | R5 External Debug Interface (APB slave) | **R5 core debug** |
+| AP2 | 2 | `cxdapapbap` | Local APB ROM-table decode at `0x1000`; otherwise the R5 EDI (4-KB window) | **R5 discovery and core debug** |
 | AP3 | 3 | `cxdapahbap` | M85 EPPB (AHB slave of `olympus_dbg`) | **M85 core debug** |
 
 AP ordering is a choice, not a constraint. Putting the AXI-AP at AP1 means a
@@ -330,6 +343,10 @@ system-bus masters use the system-visible region
 `0xE00F_0000`–`0xE00F_3FFF`, present in the R5 `main_map` and M85 `mclass_map`.
 The APBIC ROM table is selected in the first 4 KB of that region; its CoreSight
 component identification registers are at `0xE00F_0FF0`–`0xE00F_0FFC`.
+Separately, AP2 advertises an R5 ROM table at AP-relative `0x00001000`; AP2
+intercepts accesses to that 4-KB page before the R5 EDI address is truncated to
+its 4-KB window. Its first entry points to the EDI at AP-relative address zero.
+This AP2-local page is not part of the APBIC/system memory map.
 
 All three requesters feed the APBIC's single APB slave through a round-robin
 arbiter. The M85 APB address is reconstructed from its compressed EPPB address
@@ -352,12 +369,14 @@ registers.
 |--------|-------|-------|-------|
 | DAP | `FCLK` | `nPORESET` | Current RTL uses the system clock and reset directly; independent debug operation while system clock/reset are stopped is not provided. |
 | Debug APB / AXI-AP / AHB-AP | `FCLK` | `nPORESET` | Same clock/reset as the DAP. |
-| R5 debug | R5 `ACLK` (`FCLK` in this system) | `nPORESET` / `PRESETDBG0n` | `ACLK` is assigned from `FCLK`; no asynchronous bridge is currently used. |
-| M85 debug | M85 `ACLK` (`FCLK` in this system) | M85 reset | The EPPB interface is connected to the AHB-AP. |
+| R5 core / EDI | `FCLK` | Functional reset `nSYSRESET`; debug AP reset `nPORESET` | `ACLK` is `FCLK`; `DBGRESET0n` and `PRESETDBG0n` use `nSYSRESET`. No independent debugger reset is implemented. |
+| M85 core / EPPB | `FCLK` | Functional reset `nSYSRESET`; debug/ETM reset `nPORESET` | `nSYSRESET` is shared with the R5. `CPUWAIT` can hold/release M85, but does not independently reset it. |
 
-Power: the current simulation ties `cdbgpwrupack`/`csyspwrupack` and
-`cdbgrstack` to constants so the DP can run. Revisit these ties when the
-platform has a real power/reset controller.
+Power: there is no debug/system power controller or switched debug power domain.
+The DP's `cdbgpwrupack` and `csyspwrupack` are tied high to model always-on
+domains; `cdbgrstack` is tied low because no debug reset controller is present.
+These are simulation/prototype assumptions, not evidence of physical power
+control. Keep debug power-up state distinct from per-core reset control.
 
 ---
 
@@ -408,23 +427,21 @@ window — plus a separate `PADDRDBG310` bit. The `cxdapapbap` drives a 30-bit
 `paddr[31:2]` from the AP's TAR register. So the integrator must select which
 4 KB slice of TAR is presented to the R5.
 
-**Design.** The R5's own debug map (defined by `DBGROMADDR`/`DBGROMADDRV` and
-`DBGSELFADDR0`/`DBGSELFADDRV0`, which milliSoC currently ties off) must be
-defined first; the R5's `DBGSELFADDR` should point at the R5's own debug
-registers so that a debugger can find them, and `DBGROMADDR` should point at a
-ROM table that the R5 uses to locate its debug components.
+**Implemented address mapping.** AP2 advertises a ROM table at AP-relative
+`0x00001000` (`rombaseaddr = 0x00001001`). The table is intercepted in the
+debug subsystem before address slicing; its first entry points to the R5 EDI
+at AP-relative address zero. Other AP2 addresses are passed to the EDI using
+`PADDRDBG0 = PADDR[11:2]` and `PADDRDBG310 = PADDR[31]`. The R5
+`DBGROMADDR`/`DBGROMADDRV` inputs advertise `0x00001000`; `DBGSELFADDR0`/
+`DBGSELFADDRV0` are still zero/invalid.
 
-**Open sub-decision.** How the 4 KB R5 window is chosen from the 30-bit TAR:
-* *Option A (simple):* dedicate one AP register (or one TAR bit field) to select
-  the slice, and hard-wire the rest. Simple, but the debugger must know the
-  convention.
-* *Option B (mirrored):* present TAR bits `[13:2]` to `PADDRDBG0` and use
-  `PADDRDBG310` = TAR bit `[14]`, i.e. a 32 KB window mapped onto the R5's 4 KB
-  + `PADDRDBG310` structure. Matches the R5's own addressing more closely.
-
-Recommend **Option B** if the R5 TRM confirms `PADDRDBG310` is the "window 1"
-select; otherwise Option A. This must be checked against
-`CoreSight_SoC400`/`Cortex-R5` TRM before Stage 2 begins.
+**Status.** The R5 table BASE, entry, terminator, and component IDs are checked
+over JTAG; BASE, entry, and CID0 are checked over SWD. The EDI component-ID
+registers and device type are also checked directly. The table is an AP2-local
+decode, not a CoreSight ROM table integrated into APBIC or system memory.
+Validate the R5 EDI high-address qualifier and all intended debug-register
+accesses against the licensed integration contract before claiming full
+core-debug support.
 
 ### D4 — AP3 is an AHB-AP onto the M85 EPPB (rather than the M85's native `olympus_dap`) — **decided**
 
@@ -532,6 +549,28 @@ APB strobes would have had to be tied to `4'b1111`. Because AP3 is realised as
 `cxdapahbap` on the M85 EPPB (D4), the M85's AHB interface carries byte strobes
 natively and this tie-off is not needed. It does **not** apply to AP0 or AP2,
 whose APB targets have no byte strobes either.
+
+### D10 — Per-core power and debugger-requested reset — **PLANNED**
+
+**Requirement.** A debugger must be able to request an R5-only reset or an
+M85-only reset without resetting the other processor, the DAP, or shared
+system infrastructure. Reset requests must be subject to the eventual debug
+authorization policy.
+
+**Power architecture.** The current design has no switched processor power
+domains. Arm PCK-600 is the intended future power-controller integration for
+the cores. Confirm its licensed interface and exact reset/power/isolation
+responsibilities before deciding whether it also supplies the required
+independent reset sequencing. Do not equate PCK-600 power acknowledgement with
+core reset completion, or with the SWJ-DP `CDBGPWRUPACK`.
+
+**Reset scope selected.** Reset the selected processor and its private
+control/cache state; preserve its private TCM contents. The other processor,
+DAP, and shared SoC infrastructure must remain operational.
+
+**Still to define.** Reset assertion/release sequencing, reset-completion
+status, and behavior when a reset is requested while that core's power domain
+is off. The DAP and the control path must remain available throughout.
 
 ---
 
@@ -716,8 +755,8 @@ RTL is rendered.
 The three stated simulation exit criteria are met in the current checkout. The latest
 `make compile SIMULATOR=vcs` completed, and
 `make run TESTNAME=hello SIMULATOR=vcs` exited successfully, printing the R5
-bootloader banner and both `Hello SoCLabs MilliSoC` banners. The BFM log contains
-**49 PASS checks / 0 FAIL**, finishing with `ALL TESTS PASSED` at ~101.2 µs.
+bootloader banner and both `Hello SoCLabs MilliSoC` banners. The BFM log
+finishes with `ALL TESTS PASSED`.
 The latest compile also ran the root `build_soc400` prerequisite, which copied
 the static RTL, rendered all three configured components, applied the vendor
 source fix, and then compiled. VCS printed a non-fatal `cfs_ident_exec`
@@ -734,14 +773,17 @@ Checks performed by `verif/monitors/dap_swd_bfm.sv`:
 | JTAG | AP0 CSW / IDR | `0x80000042` / `0x54770002` |
 | JTAG | AP1 NIC400 `DEBUG` boot-ROM read | `0xE59FF018` at `0xFFFF0000` |
 | JTAG | AP2 (R5) IDR / CSW | `0x54770002` / `0x80000042`, `pdbg = 1` |
-| JTAG | AP2 R5 `COMP0..3`, `DEVTYPE` | `0x0D`, `0x90`, `0x05`, `0xB1`, `0x15` |
+| JTAG | AP2 R5 EDI `COMP0..3`, `DEVTYPE` | `0x0D`, `0x90`, `0x05`, `0xB1`, `0x15` |
+| JTAG | AP2 BASE and R5 ROM table | BASE `0x00001003`; EDI entry, terminator, ROM CIDs `0x0D`, `0x10`, `0x05`, `0xB1` |
 | JTAG | AP3 (M85) IDR / CSW | `0x84770001` / `0x43000042` |
-| JTAG | AP3 M85 ROM `SCS entry`, `CID0..3` | `0xFFF0F003`, `0x0D`, `0x10`, `0x05`, `0xB1` |
+| JTAG | AP3 BASE and M85 ROM entry / `CID0..3` | BASE `0xE00FF003`; entry `0xFFF0F003`; CIDs `0x0D`, `0x10`, `0x05`, `0xB1` |
 | SWD | DPIDR | `0x6BA02477`, ACK OK |
 | SWD | DP CTRL write / STAT read | `CDBGPWRUPREQ` and `CDBGPWRUPACK` set |
 | SWD | DP ADDR write/readback | `0x00000000` |
 | SWD | AP0 IDR | `0x54770002` |
-| SWD | AP2 R5 `COMP0`, `DEVTYPE` | `0x0D`, `0x15` |
+| SWD | AP2 R5 EDI `COMP0`, `DEVTYPE` | `0x0D`, `0x15` |
+| SWD | AP2 BASE and R5 ROM entry / CID0 | BASE `0x00001003`; entry `0xFFFFF003`; CID0 `0x0D` |
+| SWD | AP3 BASE and M85 ROM entry / `CID0..3` | BASE `0xE00FF003`; entry `0xFFF0F003`; CIDs `0x0D`, `0x10`, `0x05`, `0xB1` |
 | SWD | Final DP `CTRL/STAT` | `0xB0000040` (`STICKYERR` clear; `STICKYORUN` set and not checked) |
 
 ### 5.1 Integration findings from Stage 0
@@ -842,40 +884,53 @@ output. The map was regenerated and its generated decode inspected. Other
 peripheral access, transfer sizes, AXI response/error behavior, and the
 excluded RT_GIC path still need testing.
 
-### Stage 2 — Core debug: R5 and M85 — **PARTIALLY IMPLEMENTED**
+### Stage 2 — Core debug and independent reset: R5 and M85 — **PARTIALLY IMPLEMENTED**
 
 *Delivers requirement (2).*
 
 #### 2.1 R5 (AP2)
 
-**Status: AP2 reaches the R5 EDI identification registers; core debug is not
-verified.** The TAR-to-EDI address slicing is present and BFM reads of
-`COMP0..3` and `DEVTYPE` pass. Remaining work:
+**Status: AP2 reaches the R5 EDI and advertises an R5 ROM table; invasive core
+debug and reset are not verified.** BFM reads the table, its component IDs, and
+the EDI's `COMP0..3` and `DEVTYPE`. Remaining work:
 
-* Define the R5's debug address map:
-  * `DBGROMADDR` / `DBGROMADDRV` — base of the R5's debug ROM table.
-  * `DBGSELFADDR0` / `DBGSELFADDRV0` — base of the R5's own debug registers.
-  They are still tied off, and `DBGEN0` is still low.
-* Establish a deliberate debug-enable/security policy before enabling `DBGEN0`.
-* Implement and verify halt, resume, single-step, core-register access, and
-  debug reset/acknowledgement behavior. `PCLKENDBG` is already asserted.
+* Decide whether to implement `DBGSELFADDR0`/`DBGSELFADDRV0`; they are
+  currently zero/invalid. `DBGROMADDR`/`DBGROMADDRV` already advertise the
+  AP2-local table at `0x00001000`.
+* Establish a deliberate debug-enable/security policy before enabling
+  `DBGEN0`, which is currently low. `NIDEN0` is high for trace and needs its
+  own production policy.
+* Implement and verify halt, resume, single-step, and core-register access.
+  `PCLKENDBG` is already asserted.
+* Add an authorized debugger-request path to reset the R5 independently of
+  M85 and the rest of the SoC. Keep the DAP and reset control reachable while
+  the R5 is held in reset. Define reset acknowledgement/status and verify
+  release/re-boot behavior.
 
 #### 2.2 M85 (AP3)
 
-**Status: AP3 reaches the M85 EPPB ROM table and identification registers; core
-debug is not verified.** The AHB path is connected and the BFM reads the ROM
-table entry and CIDs. Remaining work is to test M85 core halt, resume,
-single-step, and architectural register access.
+**Status: AP3 BASE advertises the M85 EPPB ROM table; core debug and reset are
+not verified.** JTAG and SWD BFM checks read the table entry and component
+IDs. Remaining work is to test M85 core halt, resume, single-step, and
+architectural register access.
 
 * The EPPB decode inside `olympus_dbg` requires `haddr[31:20] == 12'hE00` and
   `|haddr[19:18]`; the M85 ROM table therefore appears at **`0xE00F_F000`**
   (`paddr[19:12] == 8'hFF`). This resolves risk R5 below.
 
+* Implement and verify an authorized M85 reset path independent of R5 reset.
+  `CPUWAIT` is currently controlled by SYS_CTRL and supports holding/releasing
+  the M85 for boot; it is not an independent reset. Ensure that resetting M85
+  does not reset R5, the DAP, or shared SoC infrastructure.
+
 #### 2.3 ROM table
 
-**Status: not complete.** AP0/APBIC is present and its AP ID register reads, but
-the SoC-level ROM table entries have not been populated and validated as a
-coherent debugger-visible enumeration of the APs and components.
+**Status: per-core tables are advertised; system-wide discovery is incomplete.**
+AP2's BASE advertises its AP-local R5 table at `0x00001000`; AP3's BASE
+advertises the M85 table at `0xE00FF000`. The BFM checks both BASEs and their
+table contents. AP0/APBIC is present and its AP ID register reads, but its
+advertised BASE/table reachability and a coherent top-level enumeration of
+APs/components remain unverified.
 
 ### Stage 3 — Trace — **3-SOURCE RTL INTEGRATED; ALL SOURCES OBSERVED**
 
@@ -920,12 +975,27 @@ policy.
 
 ### Stage 4 — Hardening, discovery and documentation — **NOT STARTED**
 
-* Populate and verify the full ROM table.
-* Authentication: wire `dbgen`/`spiden` to a real policy (e.g. a bit in the
-  system control register that software can set) instead of constants.
-* Security note: an always-enabled `DBGEN` on a real ASIC is a debug-access
-  backdoor. Document this prominently and add a build-time option
-  (`DEBUG_ACCESS` parameter) that removes the debug path in production builds.
+* Complete and verify SoC-level AP0 ROM-table discovery; retain the separately
+  advertised AP2 R5 and AP3 M85 tables as needed by the integration.
+* Define an authorization/lifecycle policy and gate invasive debug, AP access,
+  trace, and debugger-requested reset accordingly. Do not use a freely writable
+  software bit as the sole production authorization mechanism.
+* Keep the current always-on behavior explicit until power control is added:
+  the SoC presently has no switched debug/core power domains, and DP power-up
+  acknowledgements are tied high.
+* Plan integration of Arm PCK-600 power controllers for the core power
+  domains. Confirm the licensed PCK-600 interface, power sequencing, status,
+  isolation, clock, and reset responsibilities before choosing the RTL
+  partition. PCK-600 integration is future work and is not present in the
+  current design.
+* Implement debugger-requested R5-only and M85-only resets through a
+  reset-control path that leaves the DAP operational. Coordinate each reset
+  with core power state and authorization; do not assume PCK-600 alone supplies
+  the required per-core reset behavior until its integration contract is
+  verified.
+* Document clearly that permanently enabled invasive debug on an ASIC is a
+  security exposure; provide a production configuration that disables or
+  securely gates debug access.
 * Update `README.md` and `AGENTS.md` with the debug architecture, the AP map, and
   the debugger bring-up procedure.
 
@@ -947,11 +1017,11 @@ There is **no debugger in the repository**. The realistic options are:
 **Status:** Option A is implemented as
 `verif/monitors/dap_swd_bfm.sv` (one module with inline transaction/check
 tasks; no separate package). It currently covers JTAG and SWD identification,
-DP setup, AP IDs, R5 component IDs, and the M85 ROM table. Trace checks count
-TPIU output cycles and accepted M85 ITM, M85 ETM, and R5 ETMR5 source beats
-with the configured ETM IDs; they do not decode trace packets. APB/ATB
-protocol checkers and a real debugger are not part of the current verified
-coverage. Option C remains the eventual hardware goal.
+DP setup, AP IDs, AP2 R5 BASE/table checks, and AP3 M85 BASE/table checks.
+Trace checks count TPIU output cycles and accepted M85 ITM, M85 ETM, and R5
+ETMR5 source beats with the configured ETM IDs; they do not decode trace
+packets. APB/ATB protocol checkers and a real debugger are not part of the
+current verified coverage. Option C remains the eventual hardware goal.
 
 ### 6.2 Test list
 
@@ -959,6 +1029,7 @@ coverage. Option C remains the eventual hardware goal.
 |----|------|-------|----------------|----------------|
 | T0.1 | SoC-400 files compile and the `hello` regression still passes | 0 | `make run TESTNAME=hello SIMULATOR=vcs` completes with expected UART output. | **Pass** — compile and latest `hello` run completed. |
 | T0.2 | SWJ-DP powers up | 0 | DP `IDCODE` reads `0x6BA02477` (SWD), with JTAG IDCODE also checked. | **Pass** — both transport identification checks pass. |
+| T0.3 | AP2/AP3 ROM-table discovery | 0 | JTAG and SWD report the expected AP BASE values and table contents for R5 and M85. | **Pass** — AP2 R5 and AP3 M85 checks pass in the BFM. |
 | T1.1 | DP register access | 1 | `CTRL/STAT`, `SELECT`, `RDBUFF`/`RDATA` reads/writes behave per ADIv5. | **Partial pass** — basic setup/reads work; sticky overrun and error paths remain unverified. |
 | T1.2 | AP1 (AXI-AP) read of system memory | 1 | Known ROM, TCM, and peripheral words read through AP1. | **Partial pass** — boot-ROM, M85/R5 TCM readbacks, and SYS_CTRL `cpu_mx_wait` read pass; other peripheral windows remain. |
 | T1.3 | AP1 write to system memory | 1 | Writes to safe TCM locations read back through AP1. | **Pass** — M85 ITCM and R5 ATCM write/read checks pass; firmware-consumed writes are not tested. |
@@ -967,12 +1038,16 @@ coverage. Option C remains the eventual hardware goal.
 | T2.1 | R5 halt via AP2 | 2 | R5 stops fetching after a halt request. | **Not tested.** |
 | T2.2 | R5 register access via AP2 | 2 | R5 architectural debug registers read expected values. | **Not tested** — only component ID registers were read. |
 | T2.3 | R5 single-step | 2 | PC advances one instruction per step request. | **Not tested.** |
-| T2.4 | M85 halt via AP3 | 2 | M85 stops fetching after a halt request. | **Not tested.** |
-| T2.5 | M85 `MCUROMADDR` reachable | 2 | `0xE00FE000` returns expected M85 internal debug values. | **Not tested** — current checks target the EPPB ROM table at `0xE00FF000`. |
-| T2.6 | Memory view via AP1 while cores run | 2 | TCM/SRAM reads are consistent and do not disturb running cores. | **Partial pass** — safe ITCM/ATCM write/read checks complete and the normal boot/hello output follows; broader coherence/traffic testing remains. |
+| T2.4 | R5 individual reset via debugger | 2 | R5 resets and resumes boot while M85, DAP, and shared system infrastructure remain operational. | **Not implemented.** |
+| T2.5 | M85 halt via AP3 | 2 | M85 stops fetching after a halt request. | **Not tested.** |
+| T2.6 | M85 register access via AP3 | 2 | M85 architectural debug registers read expected values. | **Not tested.** |
+| T2.7 | M85 individual reset via debugger | 2 | M85 resets and resumes boot while R5, DAP, and shared system infrastructure remain operational. | **Not implemented.** |
+| T2.8 | Memory view via AP1 while cores run | 2 | TCM/SRAM reads are consistent and do not disturb running cores. | **Partial pass** — safe ITCM/ATCM write/read checks complete and the normal boot/hello output follows; broader coherence/traffic testing remains. |
 | T3.1 | M85 ITM-to-TPIU software trace through funnel | 3 | M85 firmware unlocks/enables the funnel, emits a marker, and the testbench observes accepted ITM beats and valid trace-port cycles before M85 completion. | **Pass** — 26 accepted ITM source beats and 2,304 total valid TPIU samples; marker decoding and TPIU register readback remain open. |
 | T3.2 | R5 ETMR5 APB identification route | 3 | M85 reads ETMR5 Peripheral ID 0 and Component ID 0 through APBIC master 2. | **Pass** — firmware reports `R5 ETMR5 APB PASS` in `hello` simulation. |
 | T3.3 | M85 ETM and R5 ETMR5 trace emission | 3 | Configure each ETM, observe each source through the funnel, and identify its trace ID. | **Pass (source handshakes only)** — 545 M85 ETM beats with ID `0x22` and 2 R5 ETMR5 beats with ID `0x23`; R5 sustained instruction coverage and packet decoding remain open. |
+| T4.1 | PCK-600 core power management | 4 | Core power-up/down requests, acknowledgements, isolation, and debug-visible behavior follow the licensed PCK-600 integration contract. | **Future work** — PCK-600 is not integrated. |
+| T4.2 | Debug authorization and lockout | 4 | Unauthorized AP, invasive core debug, trace, and reset requests are denied; authorized behavior follows the approved lifecycle policy. | **Not implemented.** |
 
 ### 6.3 Debugger bring-up (post-silicon)
 
@@ -998,13 +1073,16 @@ documented SWD pin-out.
 | R9 | Debug subsystem elaboration and integration. | Unknown compile errors or disconnected paths. | **Resolved for simulation baseline:** module is instantiated and the VCS `hello` run passes. Extend regression checks as Stage 1/2 proceed. |
 | R10 | `flows/simulate.mk`'s `run_cocotb` target references `verif/cocotb/`, which does not exist in this repo. | Cannot use the project's cocotb flow as-is. | The plan writes the BFM in SystemVerilog (§0.6) and drives it from the existing testbench, so the broken cocotb target is not on the critical path. Creating `verif/cocotb/` is a viable alternative if the team prefers Python. |
 | R11 | Trace clock source and output path. | X-propagation or undriven trace pins. | **Resolved for simulation baseline:** `TRACECLKIN` is driven by `FCLK`; the TPIU trace outputs are exposed and the testbench observes valid samples. Independent trace-clock and physical pad validation remain open. |
-| R12 | Debug access is a security exposure if left permanently enabled. | Inappropriate for a production ASIC. | Build-time `DEBUG_ACCESS` parameter (Stage 4); document prominently. |
+| R12 | Debug access is a security exposure if left permanently enabled; several AP/debug enables are hardwired, and M85 invasive debug is enabled. | Inappropriate for a production ASIC. | Define a lifecycle/authentication policy and gate AP access, R5/M85 invasive debug, trace, and debugger reset requests. Do not rely solely on a freely writable software control bit. |
+| R13 | R5 and M85 functional resets currently share `nSYSRESET`; there is no debugger-controlled per-core reset. | Resetting one processor through the existing system-reset path also resets the other processor and system logic. | Add an authorized per-core reset-control path that preserves the DAP/shared infrastructure and private TCM contents. Define acknowledgement behavior and coordinate reset with future power sequencing. |
+| R14 | PCK-600 core power controllers are not integrated. | Core power state, power-up acknowledgements, isolation, and debug access to powered-down cores are not modeled. | Integrate the licensed PCK-600 IP in a future power-management stage; verify the actual interface and reset responsibilities before binding reset control to it. |
 
 ### Resolved decisions and remaining questions
 
-**Resolved:** The M85 uses AP3 as an AHB-AP onto its EPPB; the DAP and processor
-interfaces currently share `FCLK`/`nPORESET`; both JTAG and SWD are implemented
-and exercised in simulation.
+**Resolved:** The M85 uses AP3 as an AHB-AP onto its EPPB; AP2 advertises the
+R5's AP-local ROM table; the DAP and processor interfaces currently share
+`FCLK`/`nPORESET`; both JTAG and SWD are implemented and exercised in
+simulation. There is no independent per-core reset or PCK-600 power control yet.
 
 1. **R5 EDI address slicing (D3/R6):** confirm `PADDRDBG310` semantics and the
    TAR-to-EDI mapping against the R5 TRM. Component-ID reads do not establish
@@ -1018,6 +1096,14 @@ and exercised in simulation.
    top-level table, then populate and verify its entries.
 4. **Physical pads:** board/package pin assignment, pad-cell choice, and
    external pull requirements still need hardware sign-off.
+5. **Per-core reset sequencing:** the selected scope resets the processor and
+   private control/cache state, preserves private TCM contents, and leaves the
+   other core, DAP, and shared infrastructure running. Define reset
+   assertion/release sequencing and observable completion/re-boot behavior.
+6. **Power/reset integration:** PCK-600 is the intended future core power
+   controller. Verify its licensed integration contract and determine whether
+   separate per-core reset logic is required; do not treat DP power-up
+   acknowledgement as proof that a core is powered or released from reset.
 
 ---
 
@@ -1117,9 +1203,18 @@ transaction/check tasks currently live in `dap_swd_bfm.sv`.
   PL192 VIC, and RT_GIC; add only routes that pass NIC400 validation.
 * Add transfer-size and AXI response/error-path coverage for AP1.
 * Implement and test R5/M85 halt, resume, single-step, and architectural
-  register access; configure the R5 debug ROM/self-addresses and an intentional
-  debug-enable policy.
-* Populate and validate a coherent SoC-level ROM table.
+  register access; decide whether the R5 should advertise `DBGSELFADDR`.
+* Implement authorized independent R5 and M85 reset paths while preserving the
+  DAP and shared system infrastructure; define exactly which private state each
+  reset covers.
+* Integrate PCK-600 core power controllers after confirming their licensed
+  interface and reset responsibilities. Coordinate debug requests with actual
+  core power state; do not model switched power with permanently asserted
+  acknowledgements.
+* Define an authorization/lifecycle policy for AP access, invasive debug,
+  trace, and debugger-requested reset before production use.
+* Populate and validate AP0's SoC-level ROM table. AP2 R5 and AP3 M85 tables
+  are already advertised and covered by BFM checks.
 * Add parity/error-path coverage and sticky-status checks; add debug-traffic
   assertions/protocol checking where useful. BFM completion timeout is now
   enforced by the testbench.

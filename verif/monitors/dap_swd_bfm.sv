@@ -84,6 +84,7 @@ module dap_swd_bfm #(
   // AP register select (A field of an APACC access)
   localparam logic [1:0] AP_REG_CSW = 2'b00;
   localparam logic [1:0] AP_REG_TAR = 2'b01;
+  localparam logic [1:0] AP_REG_BASE = 2'b10;
   localparam logic [1:0] AP_REG_DRW = 2'b11;
 
   // DP CTRL/STAT bit positions (within the 32 bit register value)
@@ -114,6 +115,13 @@ module dap_swd_bfm #(
   localparam logic [31:0] R5_COMP2_EXPECTED   = 32'h0000_0005;
   localparam logic [31:0] R5_COMP3_EXPECTED   = 32'h0000_00B1;
   localparam logic [31:0] R5_DEVTYPE_EXPECTED = 32'h0000_0015;
+  localparam logic [31:0] R5_ROM_BASE         = 32'h0000_1000;
+  localparam logic [31:0] R5_ROM_EDI_ENTRY    = 32'hFFFF_F003;
+  localparam logic [31:0] R5_AP_BASE_EXPECTED = 32'h0000_1003;
+  localparam logic [31:0] R5_ROM_CID0         = 32'h0000_000D;
+  localparam logic [31:0] R5_ROM_CID1         = 32'h0000_0010;
+  localparam logic [31:0] R5_ROM_CID2         = 32'h0000_0005;
+  localparam logic [31:0] R5_ROM_CID3         = 32'h0000_00B1;
 
   // Cortex-M85 debug ROM table at 0xE00FF000 (olympus_romtable.sv).
   localparam logic [31:0] M85_ROM_BASE        = 32'hE00F_F000;
@@ -122,6 +130,7 @@ module dap_swd_bfm #(
   localparam logic [31:0] M85_ROM_CID1        = 32'h0000_0010;
   localparam logic [31:0] M85_ROM_CID2        = 32'h0000_0005;
   localparam logic [31:0] M85_ROM_CID3        = 32'h0000_00B1;
+  localparam logic [31:0] M85_AP_BASE_EXPECTED = 32'hE00F_F003;
 
   //--------------------------------------------------------------------------
   // Pad drivers
@@ -677,6 +686,24 @@ module dap_swd_bfm #(
     ap_check_read(32'h0000_0FFC, R5_COMP3_EXPECTED,   "AP2 R5 COMP3");
     ap_check_read(32'h0000_0FCC, R5_DEVTYPE_EXPECTED, "AP2 R5 DEVTYPE");
 
+    ap_select(AP_R5, 4'hF);
+    ap_read(AP_REG_BASE, idr);
+    $display("[%0t] DAP BFM: AP2 BASE = 0x%08x", $time, idr);
+    check_eq32(idr, R5_AP_BASE_EXPECTED, "AP2 BASE points to R5 ROM table");
+    ap_select(AP_R5, 4'd0);
+    ap_check_read(R5_ROM_BASE + 32'h000, R5_ROM_EDI_ENTRY,
+                  "AP2 R5 ROM EDI entry");
+    ap_check_read(R5_ROM_BASE + 32'h004, 32'h0000_0000,
+                  "AP2 R5 ROM table terminator");
+    ap_check_read(R5_ROM_BASE + 32'hFF0, R5_ROM_CID0,
+                  "AP2 R5 ROM CID0");
+    ap_check_read(R5_ROM_BASE + 32'hFF4, R5_ROM_CID1,
+                  "AP2 R5 ROM CID1");
+    ap_check_read(R5_ROM_BASE + 32'hFF8, R5_ROM_CID2,
+                  "AP2 R5 ROM CID2");
+    ap_check_read(R5_ROM_BASE + 32'hFFC, R5_ROM_CID3,
+                  "AP2 R5 ROM CID3");
+
     //---------------------------------------------------------------------
     // 8. AP3 - AHB-AP whose target is the Cortex-M85 external PPB
     //---------------------------------------------------------------------
@@ -684,13 +711,16 @@ module dap_swd_bfm #(
     ap_read(AP_REG_DRW, idr);
     $display("[%0t] DAP BFM: AP3 IDR = 0x%08x", $time, idr);
     check_eq32(idr, AHBAP_IDR_EXPECTED, "AP3 identification register");
+    ap_read(AP_REG_BASE, idr);
+    $display("[%0t] DAP BFM: AP3 BASE = 0x%08x", $time, idr);
+    check_eq32(idr, M85_AP_BASE_EXPECTED, "AP3 BASE points to M85 ROM table");
 
     ap_select(AP_M85, 4'd0);
     ap_read(AP_REG_CSW, csw);
     $display("[%0t] DAP BFM: AP3 CSW = 0x%08x", $time, csw);
     check_eq32(csw[3:0], 4'h2, "AP3 CSW AP type");
 
-    // The Cortex-M85 debug ROM table is mapped at 0xE00FF000.
+    // The instantiated Cortex-M85 core's debug ROM table is at 0xE00FF000.
     ap_check_read(M85_ROM_BASE + 32'h000, M85_ROM_SCS_ENTRY, "AP3 M85 ROM SCS entry");
     ap_check_read(M85_ROM_BASE + 32'hFF0, M85_ROM_CID0,      "AP3 M85 ROM CID0");
     ap_check_read(M85_ROM_BASE + 32'hFF4, M85_ROM_CID1,      "AP3 M85 ROM CID1");
@@ -750,6 +780,25 @@ module dap_swd_bfm #(
     swd_dp_write(2'b10, 32'h0200_0000, "SWD DP ADDR write AP2 bank 0");
     swd_ap_check_read(32'h0000_0FF0, R5_COMP0_EXPECTED, "SWD AP2 R5 COMP0");
     swd_ap_check_read(32'h0000_0FCC, R5_DEVTYPE_EXPECTED, "SWD AP2 R5 DEVTYPE");
+    swd_ap_check_read(R5_ROM_BASE + 32'h000, R5_ROM_EDI_ENTRY,
+                      "SWD AP2 R5 ROM EDI entry");
+    swd_ap_check_read(R5_ROM_BASE + 32'hFF0, R5_ROM_CID0,
+                      "SWD AP2 R5 ROM CID0");
+
+    swd_dp_write(2'b10, 32'h0200_00F0, "SWD DP ADDR write AP2 bank 0xF");
+    swd_ap_read(AP_REG_BASE, swd_data, "SWD AP2 BASE read");
+    check_eq32(swd_data, R5_AP_BASE_EXPECTED, "SWD AP2 BASE points to R5 ROM table");
+
+    // AP3 BASE is in AP bank 0xF; then select bank 0 for M85 memory reads.
+    swd_dp_write(2'b10, 32'h0300_00F0, "SWD DP ADDR write AP3 bank 0xF");
+    swd_ap_read(AP_REG_BASE, swd_data, "SWD AP3 BASE read");
+    check_eq32(swd_data, M85_AP_BASE_EXPECTED, "SWD AP3 BASE points to M85 ROM table");
+    swd_dp_write(2'b10, 32'h0300_0000, "SWD DP ADDR write AP3 bank 0");
+    swd_ap_check_read(M85_ROM_BASE, M85_ROM_SCS_ENTRY, "SWD AP3 M85 ROM SCS entry");
+    swd_ap_check_read(M85_ROM_BASE + 32'hFF0, M85_ROM_CID0, "SWD AP3 M85 ROM CID0");
+    swd_ap_check_read(M85_ROM_BASE + 32'hFF4, M85_ROM_CID1, "SWD AP3 M85 ROM CID1");
+    swd_ap_check_read(M85_ROM_BASE + 32'hFF8, M85_ROM_CID2, "SWD AP3 M85 ROM CID2");
+    swd_ap_check_read(M85_ROM_BASE + 32'hFFC, M85_ROM_CID3, "SWD AP3 M85 ROM CID3");
 
     // Confirm that no AP transaction raised an error: the DP sticky error flag
     // would be set by any failed bus access.

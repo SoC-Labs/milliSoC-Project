@@ -95,7 +95,13 @@ puts "Synthesis status: $synth_status"
 # Implementation + bitstream
 # ----------------------------
 
-launch_runs impl_1 -to_step write_bitstream -jobs 4
+# Set the implementation strategy to focus on congestion
+set_property strategy Congestion_SpreadLogic_high [get_runs impl_1]
+set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+set_property -name {STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.MORE OPTIONS} -value {-hold_fix} -objects [get_runs impl_1]
+
+
+launch_runs impl_1 -to_step write_bitstream -jobs 8
 wait_on_run impl_1
 
 set impl_status [get_property STATUS [get_runs impl_1]]

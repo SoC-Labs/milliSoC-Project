@@ -5,12 +5,7 @@ module millisoc_fpga_wrapper(
     input  wire [1:0]       OSCCLK,
     input  wire             CB_nPOR,
     // User QSPI Flash
-    inout  wire             QSPI_D0,
-    inout  wire             QSPI_D1,
-    inout  wire             QSPI_D2,
-    inout  wire             QSPI_D3,
-    output wire             QSPI_nCS,
-    output wire             QSPI_SCLK,
+    inout wire  [17:0]      SH0_IO,
     // UART
     input  wire [3:0]       UART_RX_F,
     output wire [3:0]       UART_TX_F,
@@ -19,13 +14,9 @@ module millisoc_fpga_wrapper(
     // DAP-LITE external signals
     input  wire             CS_nTRST,
     input  wire             CS_TCK,
-    input  wire             CS_TMS,
+    inout  wire             CS_TMS, // TMS SWDIO
     input  wire             CS_TDI,
     output wire             CS_TDO,
-    output wire             nTDOEN,
-    output wire             SWDO,
-    output wire             SWDOEN,
-
 
     // M85 ITM trace output through the CoreSight TPIU
     output wire             CS_T_CLK,
@@ -34,21 +25,34 @@ module millisoc_fpga_wrapper(
 
 );
 
-
+// Attach QSPI To PMOD0
 wire [3:0]  QSPI_IO_o;
 wire [3:0]  QSPI_IO_i;
 wire [3:0]  QSPI_IO_e;
+wire        QSPI_SCLK;
+wire        QSPI_nCS;
 
-assign QSPI_D0 = QSPI_IO_e[0] ? QSPI_IO_o[0] : 1'bz;
-assign QSPI_D1 = QSPI_IO_e[1] ? QSPI_IO_o[1] : 1'bz;
-assign QSPI_D2 = QSPI_IO_e[2] ? QSPI_IO_o[2] : 1'bz;
-assign QSPI_D3 = QSPI_IO_e[3] ? QSPI_IO_o[3] : 1'bz;
+assign SH0_IO[10] = QSPI_nCS;
+assign SH0_IO[13] = QSPI_SCLK;
 
-assign QSPI_IO_i[0] = QSPI_D0;
-assign QSPI_IO_i[1] = QSPI_D1;
-assign QSPI_IO_i[2] = QSPI_D2;
-assign QSPI_IO_i[3] = QSPI_D3;
+assign SH0_IO[11] = QSPI_IO_e[0] ? QSPI_IO_o[0] : 1'bz;
+assign SH0_IO[12] = QSPI_IO_e[1] ? QSPI_IO_o[1] : 1'bz;
+assign SH0_IO[7] = QSPI_IO_e[2] ? QSPI_IO_o[2] : 1'bz;
+assign SH0_IO[8] = QSPI_IO_e[3] ? QSPI_IO_o[3] : 1'bz;
 
+assign QSPI_IO_i[0] = SH0_IO[11];
+assign QSPI_IO_i[1] = SH0_IO[12];
+assign QSPI_IO_i[2] = SH0_IO[7];
+assign QSPI_IO_i[3] = SH0_IO[8];
+
+assign SH0_IO[6] = CB_nPOR; // Reset for flash chip
+
+wire SWDITMS;
+wire SWDO;
+wire SWDOEN;
+
+assign SWDITMS = CS_TMS;
+assign CS_TMS = SWDOEN ? SWDO : 1'bz;
 
 millisoc_system u_millisoc(
     .FCLK(OSCCLK[1]),
@@ -74,12 +78,12 @@ millisoc_system u_millisoc(
 
     .nTRST(CS_nTRST),
     .SWCLKTCK(CS_TCK),
-    .SWDITMS(CS_TMS),
+    .SWDITMS(SWDITMS),
     .TDI(CS_TDI),
     .TDO(CS_TDO),
     .nTDOEN(),
-    .SWDO(),
-    .SWDOEN(),
+    .SWDO(SWDO),
+    .SWDOEN(SWDOEN),
 
     .SPI_SSn(),
     .SPI_SCLK(),
