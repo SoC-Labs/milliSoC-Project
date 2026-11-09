@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | DAP transport, AP2 R5 and AP3 M85 ROM-table discovery, M85 ITM, and source-ID-tagged M85 ETM/R5 ETMR5 ATB activity are simulation-tested. Trace packet decoding and meaningful R5 instruction-trace coverage remain open. AP1 access to the PL192 VIC (`RT_GIC`) remains unresolved. Independent debugger-requested R5/M85 reset, core control, and production authorization are not implemented. See §5 and §7. |
+| **Status** | DAP transport, AP2 R5 and AP3 M85 ROM-table discovery, M85 ITM, and source-ID-tagged M85 ETM/R5 ETMR5 ATB activity are simulation-tested. Trace packet decoding and meaningful R5 instruction-trace coverage remain open. Reset-controller RTL supports independent R5/M85 resets and system reset requests from debug, software, and watchdog sources; firmware end-to-end reset coverage and production authorization remain incomplete. See §5 and §7. |
 | **Scope** | `millisoc_tech` RTL, build flow, `verif/` |
 | **Primary IP** | Arm CoreSight SoC-400 (`TM100-BU-50000-r3p2-50rel2`) |
 | **Last updated** | 2026-11-05 |
@@ -122,9 +122,10 @@ entries should be refreshed when rerunning these checks.
   not M85 halt, resume, single-step, or core-register access. The M85 core's
   `DBGEN` and `SPIDEN` are tied high; the AP3 AHB-AP has `dbgen=1` and
   `spiden=0`. These constants are not a production authorization policy.
-* There is no independent core reset control. R5 and M85 functional resets
-  share `nSYSRESET`; M85 `CPUWAIT` can hold/release the core but is not a reset.
-  The DAP's `CDBGRSTREQ` is not connected to a reset controller.
+* Functional reset control is split between `nSYSRESET`, `nR5RESET`, and
+  `nM85RESET`. Debug, software, and watchdog reset sources are wired to the
+  reset controller; standalone RTL tests pass. Full-system reset/reboot
+  behavior is still under firmware-level verification.
 * AP2 and AP3 tables are individually advertised and tested; AP0's APBIC ROM
   table is still not verified as a reachable, coherent top-level enumeration.
 * The R5 table at AP2-relative `0x00001000` is a local APB decode in the debug
@@ -369,8 +370,9 @@ registers.
 |--------|-------|-------|-------|
 | DAP | `FCLK` | `nPORESET` | Current RTL uses the system clock and reset directly; independent debug operation while system clock/reset are stopped is not provided. |
 | Debug APB / AXI-AP / AHB-AP | `FCLK` | `nPORESET` | Same clock/reset as the DAP. |
-| R5 core / EDI | `FCLK` | Functional reset `nSYSRESET`; debug AP reset `nPORESET` | `ACLK` is `FCLK`; `DBGRESET0n` and `PRESETDBG0n` use `nSYSRESET`. No independent debugger reset is implemented. |
-| M85 core / EPPB | `FCLK` | Functional reset `nSYSRESET`; debug/ETM reset `nPORESET` | `nSYSRESET` is shared with the R5. `CPUWAIT` can hold/release M85, but does not independently reset it. |
+| R5 core / EDI | `FCLK` | Functional reset `nR5RESET`; debug AP reset `nPORESET` | `nR5RESET` combines system reset with R5-local debug/software reset requests. |
+| M85 core / EPPB | `FCLK` | Functional reset `nM85RESET`; debug/ETM reset `nPORESET` | `nM85RESET` combines system reset with M85-local software reset requests. `CPUWAIT` remains a separate hold/release control. |
+| AHB QSPI controller / config registers | `FCLK` | `nPORESET` | Deliberately held out of `nSYSRESET` so QPI configuration survives warm processor/system resets; bootloader skips QPI setup when retained `CTRL` is nonzero. |
 
 Power: there is no debug/system power controller or switched debug power domain.
 The DP's `cdbgpwrupack` and `csyspwrupack` are tied high to model always-on
@@ -550,27 +552,69 @@ APB strobes would have had to be tied to `4'b1111`. Because AP3 is realised as
 natively and this tie-off is not needed. It does **not** apply to AP0 or AP2,
 whose APB targets have no byte strobes either.
 
-### D10 — Per-core power and debugger-requested reset — **PLANNED**
+### D10 — Per-core power and reset control — **PARTIALLY IMPLEMENTED**
 
 **Requirement.** A debugger must be able to request an R5-only reset or an
 M85-only reset without resetting the other processor, the DAP, or shared
 system infrastructure. Reset requests must be subject to the eventual debug
 authorization policy.
 
-**Power architecture.** The current design has no switched processor power
-domains. Arm PCK-600 is the intended future power-controller integration for
-the cores. Confirm its licensed interface and exact reset/power/isolation
-responsibilities before deciding whether it also supplies the required
-independent reset sequencing. Do not equate PCK-600 power acknowledgement with
-core reset completion, or with the SWJ-DP `CDBGPWRUPACK`.
+**Reset controller implemented.** External `nPORESET` initializes the reset
+controller and remains the reset for the DAP and SYS_CTRL. `nSYSRESET` is the
+shared functional system reset; it also resets both processors. Independent
+`nR5RESET` and `nM85RESET` outputs reset only their processor and private
+processor state. The local TCM macros have no reset input, so their contents
+are retained. Reset assertion is synchronous to `FCLK` for requests and reset
+release is synchronized; each request holds reset for at least four `FCLK`
+cycles.
+
+The source mapping is:
+
+* M85 `SYSRESETREQ`, either peripheral-subsystem watchdog request, DAP
+  `CDBGRSTREQ`, and a SYS_CTRL software system-reset command assert
+  `nSYSRESET`. Both watchdog outputs feed the controller and are represented
+  by the same reset-cause bit.
+* R5 `DBGRSTREQ0` and the SYS_CTRL R5 reset command assert `nR5RESET` only.
+* The SYS_CTRL M85 reset command asserts `nM85RESET` only.
+* The DAP reset acknowledgement is returned after `nSYSRESET` releases and
+  remains asserted until the DAP drops `CDBGRSTREQ`.
+  There is not yet a per-core reset-completion status or acknowledgement; only
+  the system-level DAP reset handshake has one.
+
+SYS_CTRL offset `0x08` is a write-one command register: bit 0 requests an
+R5-local reset, bit 1 an M85-local reset, and bit 2 a system reset. Commands
+are accepted on the APB access phase when byte strobe 0 is set and read back
+as zero. Offset `0x00` retains the reset-cause register; bits 0 through 6
+record M85 `SYSRESETREQ`, watchdog, DAP system reset, software system reset,
+software R5 reset, software M85 reset, and R5 `DBGRSTREQ0`, respectively.
+The cause register clears only on `nPORESET`.
+
+The reset outputs and SYS_CTRL command/cause behavior have standalone VCS
+unit tests. The `reset_control` firmware run reached the R5-local-reset and
+software-system-reset reboots; after warm reset the bootloader again reported
+`Flash started...` and `Preload ITCM...`, showing that the retained QSPI setup
+supports the boot path. The watchdog-reset stage did not report completion
+before the long simulation was stopped, and TCM-content retention remains
+unverified. Local reset requests currently assert immediately and do not wait
+for outstanding processor bus transactions to drain; investigate and test
+bus quiescence before relying on independent reset during active traffic.
+
+**Power architecture.** There are no switched processor power domains.
+Arm PCK-600 is the intended future power-controller integration for the cores.
+Confirm its licensed interface and exact reset/power/isolation responsibilities
+before deciding whether it also supplies independent reset sequencing. Do not
+equate PCK-600 power acknowledgement with core reset completion, or with the
+SWJ-DP `CDBGPWRUPACK`.
 
 **Reset scope selected.** Reset the selected processor and its private
 control/cache state; preserve its private TCM contents. The other processor,
 DAP, and shared SoC infrastructure must remain operational.
 
-**Still to define.** Reset assertion/release sequencing, reset-completion
-status, and behavior when a reset is requested while that core's power domain
-is off. The DAP and the control path must remain available throughout.
+**Still to implement/verify.** Define and implement behavior when reset is
+requested while a core power domain is off; power domains do not exist yet.
+Verify the reset path end to end through the DAP and firmware, including core
+reboot, shared-system continuity, and retained TCM contents. Reset requests
+are not yet gated by a production authorization policy.
 
 ---
 
@@ -902,10 +946,10 @@ the EDI's `COMP0..3` and `DEVTYPE`. Remaining work:
   own production policy.
 * Implement and verify halt, resume, single-step, and core-register access.
   `PCLKENDBG` is already asserted.
-* Add an authorized debugger-request path to reset the R5 independently of
-  M85 and the rest of the SoC. Keep the DAP and reset control reachable while
-  the R5 is held in reset. Define reset acknowledgement/status and verify
-  release/re-boot behavior.
+* The initial independent R5 reset path is implemented through R5
+  `DBGRSTREQ0` and the SYS_CTRL command register. Verify it end to end through
+  the debugger, including re-boot and shared-system continuity; authorization
+  remains future work.
 
 #### 2.2 M85 (AP3)
 
@@ -918,10 +962,10 @@ architectural register access.
   `|haddr[19:18]`; the M85 ROM table therefore appears at **`0xE00F_F000`**
   (`paddr[19:12] == 8'hFF`). This resolves risk R5 below.
 
-* Implement and verify an authorized M85 reset path independent of R5 reset.
-  `CPUWAIT` is currently controlled by SYS_CTRL and supports holding/releasing
-  the M85 for boot; it is not an independent reset. Ensure that resetting M85
-  does not reset R5, the DAP, or shared SoC infrastructure.
+* The initial independent M85 reset path is implemented through the SYS_CTRL
+  command register. Verify it end to end through the debugger, including
+  re-boot and shared-system continuity. `CPUWAIT` remains a separate hold/
+  release control, not a reset. Authorization remains future work.
 
 #### 2.3 ROM table
 
@@ -988,11 +1032,12 @@ policy.
   isolation, clock, and reset responsibilities before choosing the RTL
   partition. PCK-600 integration is future work and is not present in the
   current design.
-* Implement debugger-requested R5-only and M85-only resets through a
-  reset-control path that leaves the DAP operational. Coordinate each reset
-  with core power state and authorization; do not assume PCK-600 alone supplies
-  the required per-core reset behavior until its integration contract is
-  verified.
+* The initial reset-control path now provides independent R5/M85 resets,
+  system reset request handling, and DAP reset acknowledgement while leaving
+  the DAP operational. Verify the reset behavior end to end, then coordinate
+  reset requests with future core power state and authorization; do not assume
+  PCK-600 alone supplies the required per-core reset behavior until its
+  integration contract is verified.
 * Document clearly that permanently enabled invasive debug on an ASIC is a
   security exposure; provide a production configuration that disables or
   securely gates debug access.
@@ -1038,11 +1083,12 @@ current verified coverage. Option C remains the eventual hardware goal.
 | T2.1 | R5 halt via AP2 | 2 | R5 stops fetching after a halt request. | **Not tested.** |
 | T2.2 | R5 register access via AP2 | 2 | R5 architectural debug registers read expected values. | **Not tested** — only component ID registers were read. |
 | T2.3 | R5 single-step | 2 | PC advances one instruction per step request. | **Not tested.** |
-| T2.4 | R5 individual reset via debugger | 2 | R5 resets and resumes boot while M85, DAP, and shared system infrastructure remain operational. | **Not implemented.** |
+| T2.4 | R5 individual reset via debugger | 2 | R5 resets and resumes boot while M85, DAP, and shared system infrastructure remain operational. | **RTL implemented; standalone reset-controller tests pass.** End-to-end debugger and boot test pending. |
 | T2.5 | M85 halt via AP3 | 2 | M85 stops fetching after a halt request. | **Not tested.** |
 | T2.6 | M85 register access via AP3 | 2 | M85 architectural debug registers read expected values. | **Not tested.** |
-| T2.7 | M85 individual reset via debugger | 2 | M85 resets and resumes boot while R5, DAP, and shared system infrastructure remain operational. | **Not implemented.** |
+| T2.7 | M85 individual reset via debugger | 2 | M85 resets and resumes boot while R5, DAP, and shared system infrastructure remain operational. | **RTL implemented; standalone reset-controller tests pass.** End-to-end debugger and boot test pending. |
 | T2.8 | Memory view via AP1 while cores run | 2 | TCM/SRAM reads are consistent and do not disturb running cores. | **Partial pass** — safe ITCM/ATCM write/read checks complete and the normal boot/hello output follows; broader coherence/traffic testing remains. |
+| T2.9 | Reset source mapping and SYS_CTRL commands | 2 | CPU, both watchdog outputs, DAP, software system, and software per-core reset requests assert the intended reset outputs and cause bits. | **Standalone VCS unit tests pass; full-system integration test pending.** |
 | T3.1 | M85 ITM-to-TPIU software trace through funnel | 3 | M85 firmware unlocks/enables the funnel, emits a marker, and the testbench observes accepted ITM beats and valid trace-port cycles before M85 completion. | **Pass** — 26 accepted ITM source beats and 2,304 total valid TPIU samples; marker decoding and TPIU register readback remain open. |
 | T3.2 | R5 ETMR5 APB identification route | 3 | M85 reads ETMR5 Peripheral ID 0 and Component ID 0 through APBIC master 2. | **Pass** — firmware reports `R5 ETMR5 APB PASS` in `hello` simulation. |
 | T3.3 | M85 ETM and R5 ETMR5 trace emission | 3 | Configure each ETM, observe each source through the funnel, and identify its trace ID. | **Pass (source handshakes only)** — 545 M85 ETM beats with ID `0x22` and 2 R5 ETMR5 beats with ID `0x23`; R5 sustained instruction coverage and packet decoding remain open. |
@@ -1074,15 +1120,17 @@ documented SWD pin-out.
 | R10 | `flows/simulate.mk`'s `run_cocotb` target references `verif/cocotb/`, which does not exist in this repo. | Cannot use the project's cocotb flow as-is. | The plan writes the BFM in SystemVerilog (§0.6) and drives it from the existing testbench, so the broken cocotb target is not on the critical path. Creating `verif/cocotb/` is a viable alternative if the team prefers Python. |
 | R11 | Trace clock source and output path. | X-propagation or undriven trace pins. | **Resolved for simulation baseline:** `TRACECLKIN` is driven by `FCLK`; the TPIU trace outputs are exposed and the testbench observes valid samples. Independent trace-clock and physical pad validation remain open. |
 | R12 | Debug access is a security exposure if left permanently enabled; several AP/debug enables are hardwired, and M85 invasive debug is enabled. | Inappropriate for a production ASIC. | Define a lifecycle/authentication policy and gate AP access, R5/M85 invasive debug, trace, and debugger reset requests. Do not rely solely on a freely writable software control bit. |
-| R13 | R5 and M85 functional resets currently share `nSYSRESET`; there is no debugger-controlled per-core reset. | Resetting one processor through the existing system-reset path also resets the other processor and system logic. | Add an authorized per-core reset-control path that preserves the DAP/shared infrastructure and private TCM contents. Define acknowledgement behavior and coordinate reset with future power sequencing. |
+| R13 | Reset requests are not yet gated by an authorization policy, and full-system reset/reboot behavior has not been tested end to end. | AP-visible reset controls could be triggered by an unauthorized debugger; reset-domain wiring or core reboot behavior may differ from the intended contract. | Implement lifecycle authorization before production; run directed debugger/firmware tests for local and system resets, DAP continuity, shared-system behavior, and TCM retention. |
 | R14 | PCK-600 core power controllers are not integrated. | Core power state, power-up acknowledgements, isolation, and debug access to powered-down cores are not modeled. | Integrate the licensed PCK-600 IP in a future power-management stage; verify the actual interface and reset responsibilities before binding reset control to it. |
+| R15 | Independent core reset does not yet quiesce or drain the selected processor's outstanding bus transactions. | Resetting a processor mid-transaction may leave a shared interconnect waiting for a response or otherwise disturb traffic. | Define a safe halt/quiesce handshake from the actual core interfaces, track outstanding transactions, and add directed tests before using local reset under active traffic. |
 
 ### Resolved decisions and remaining questions
 
 **Resolved:** The M85 uses AP3 as an AHB-AP onto its EPPB; AP2 advertises the
 R5's AP-local ROM table; the DAP and processor interfaces currently share
 `FCLK`/`nPORESET`; both JTAG and SWD are implemented and exercised in
-simulation. There is no independent per-core reset or PCK-600 power control yet.
+simulation. The reset controller provides independent R5/M85 resets and
+system-wide request handling; there is no PCK-600 power control yet.
 
 1. **R5 EDI address slicing (D3/R6):** confirm `PADDRDBG310` semantics and the
    TAR-to-EDI mapping against the R5 TRM. Component-ID reads do not establish
@@ -1096,10 +1144,11 @@ simulation. There is no independent per-core reset or PCK-600 power control yet.
    top-level table, then populate and verify its entries.
 4. **Physical pads:** board/package pin assignment, pad-cell choice, and
    external pull requirements still need hardware sign-off.
-5. **Per-core reset sequencing:** the selected scope resets the processor and
-   private control/cache state, preserves private TCM contents, and leaves the
-   other core, DAP, and shared infrastructure running. Define reset
-   assertion/release sequencing and observable completion/re-boot behavior.
+5. **Per-core reset verification:** the selected scope resets the processor
+   and private control/cache state, preserves private TCM contents, and leaves
+   the other core, DAP, and shared infrastructure running. The controller
+   asserts requests for four `FCLK` cycles and synchronizes release; verify
+   completion/re-boot behavior through the integrated debugger and firmware.
 6. **Power/reset integration:** PCK-600 is the intended future core power
    controller. Verify its licensed integration contract and determine whether
    separate per-core reset logic is required; do not treat DP power-up

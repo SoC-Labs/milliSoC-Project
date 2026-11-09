@@ -29,6 +29,36 @@ the R5 boots first from boot ROM, preloads both cores' TCMs from a single flash 
 releases the M85 from CPUWAIT once the platform is initialized. This boot flow is implemented
 and passing in RTL simulation (see [Current status](#current-status)).
 
+## Reset behavior
+
+The reset controller distinguishes system reset from processor-local reset.
+M85 `SYSRESETREQ`, either peripheral watchdog, DAP `CDBGRSTREQ`, and a
+software system-reset command assert the shared functional reset. R5
+`DBGRSTREQ0` and software commands can instead reset only the R5 or only the
+M85. A local reset preserves the other processor, the DAP, shared system
+infrastructure, and private TCM contents. Reset requests are held for at
+least four `FCLK` cycles,
+with release synchronized to `FCLK`; DAP reset acknowledgement is returned
+after system reset completes.
+
+The AHB QSPI controller and configuration registers reset only on power-on
+`nPORESET`, not on warm `nSYSRESET`. This preserves the controller's QPI
+configuration across processor/system warm resets. The bootloader checks the
+retained QSPI `CTRL` register and skips flash-mode setup when it is already
+configured.
+
+SYS_CTRL offset `0x08` is a write-one command register: bit 0 requests an
+R5-local reset, bit 1 an M85-local reset, and bit 2 a system reset. The reset
+cause register at offset `0x00` records the request source. These controls are
+not yet protected by a production debug-authorization policy, and full-system
+reset/reboot verification is incomplete: the VCS firmware run reached the
+software-system-reset reboot and QSPI-backed ITCM preload, but did not complete
+the watchdog-reset stage. Local reset does not yet wait for outstanding
+processor bus transactions to drain, so avoid using it during active traffic
+until that behavior is addressed. See the
+[debug subsystem plan](./plans/millisoc_debug_subsystem.md) for reset details
+and remaining verification.
+
 ## Repository layout
 
 This repository is the top-level integration project. Most of the technology lives in git

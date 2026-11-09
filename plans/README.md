@@ -11,6 +11,7 @@ not start on a stage whose upstream decisions are still marked `PROPOSED`.
 |------|--------|---------|
 | [millisoc_debug_subsystem.md](millisoc_debug_subsystem.md) | Draft — awaiting decision on D4 | CoreSight SoC-400 based debug subsystem: DAP bring-up, system-bus debug access via the NIC400 AXI DEBUG port, R5/M85 core debug, and trace. |
 | [ethos_u85_integration.md](ethos_u85_integration.md) | In progress — full SoC compile/hello pass; shared-SRAM target not yet connected | Staged plan to integrate an Ethos-U85 demonstrator behind a replaceable NPU boundary, including RTL, NIC400, memory, host IRQ, firmware, and simulation. |
+| [verification_plan.md](verification_plan.md) | Proposal — D1–D8 accepted; Stage 0 awaiting review | Layered SoC verification plan: keeps the firmware-driven integration tests, adds UART pass/fail markers and log parsing, RTL assertions, negative/error tests, coverage and local regression, and covers boot, reset, interrupts, memory map, DMA, QSPI, MHU, shared SRAM, U85 and debug. |
 
 ## Conventions used in these plans
 

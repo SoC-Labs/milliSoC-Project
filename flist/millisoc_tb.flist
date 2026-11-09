@@ -5,3 +5,5 @@ $(SOCLABS_PROJECT_DIR)/verif/monitors/axi4_logger.sv
 $(SOCLABS_PROJECT_DIR)/verif/monitors/dap_swd_bfm.sv
 $(SOCLABS_PROJECT_DIR)/verif/testbench/millisoc_tb.sv
 $(SOCLABS_PROJECT_DIR)/verif/control/millisoc_clkreset.v
+
+$(SOCLABS_AHB_QSPI_DIR)/verif/VIP/SST26VF064B.v

@@ -6,20 +6,20 @@
 #****************************************************************************************
 
 #OSCCLK[0]
-create_clock -period 41.666 -name oscclk_0 [get_ports {OSCCLK[0]}]
-#REFCLK24MHZ	24		MHz
-create_generated_clock -name ref24clk -source [get_pins uBUFG_REFCLK24MHZ/I] -divide_by 1 -add -master_clock oscclk_0 [get_pins uBUFG_REFCLK24MHZ/O]
+# create_clock -period 41.666 -name oscclk_0 [get_ports {OSCCLK[0]}]
+# #REFCLK24MHZ	24		MHz
+# create_generated_clock -name ref24clk -source [get_pins uBUFG_REFCLK24MHZ/I] -divide_by 1 -add -master_clock oscclk_0 [get_pins uBUFG_REFCLK24MHZ/O]
 
 #32K
 #create_generated_clock -name clk32khz -source [get_pins uBUFG_REFCLK24MHZ/I] -divide_by 750 -add -master_clock oscclk_0 [get_pins uCLOCK_GEN_1_100_32K/CLK32KHZ_REG_reg/Q]
 
 #OSCCLK[1]
-create_clock -period 10.000 -name oscclk_1 [get_ports {OSCCLK[1]}]
+create_clock -period 30.000 -name oscclk_1 [get_ports {OSCCLK[1]}]
 
 #Micro SMB		40		MHz
-create_clock -period 25.000 -name smbmclk [get_ports SMBM_CLK]
+# create_clock -period 25.000 -name smbmclk [get_ports SMBM_CLK]
 #CFGCLK 	(no Global Clock pin)		25		MHz
-create_clock -period 40.000 -name cfgclk [get_ports CFG_CLK]
+# create_clock -period 40.000 -name cfgclk [get_ports CFG_CLK]
 
 # JTAG Clock
 create_clock -period 100.000 -name jtag_clk [get_ports CS_TCK]
@@ -29,36 +29,40 @@ create_clock -period 100.000 -name jtag_clk [get_ports CS_TCK]
 # TIMING CONSTRAINTS
 #****************************************************************************************
 
-create_generated_clock -name QSPI_SCLK -source [get_ports {OSCCLK[1]}] -divide_by 2 [get_pins u_millisoc/u_ahb_qspi/u_qspi_clock_div/QSPI_SCLK_i]
-create_generated_clock -name QSPI_CLK_o -source [get_pins u_millisoc/u_ahb_qspi/u_qspi_clock_div/QSPI_SCLK_i] -divide_by 1 [get_ports SH0_IO[13]]
+create_generated_clock \
+    -name QSPI_SCLK \
+    -source [get_ports {OSCCLK[1]}] \
+    -divide_by 2 \
+    [get_pins u_millisoc/u_ahb_qspi/QSPI_SCLK_i]
+create_generated_clock -name QSPI_CLK_o -source [get_pins u_millisoc/u_ahb_qspi/QSPI_SCLK_i] -divide_by 1 [get_ports QSPI_SCLK]
 
-set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports SH0_IO[11]]
-set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports SH0_IO[12]]
-set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports SH0_IO[7] ]
-set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports SH0_IO[8] ]
-set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports SH0_IO[11]]
-set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports SH0_IO[12]]
-set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports SH0_IO[7] ]
-set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports SH0_IO[8] ]
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D0]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D0]
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D1]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D1]
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D2]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D2]
+set_input_delay -clock [get_clocks QSPI_SCLK] -min 0  [get_ports QSPI_D3]
+set_input_delay -clock [get_clocks QSPI_SCLK] -max 20 [get_ports QSPI_D3]
 
-set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports SH0_IO[11]]
-set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports SH0_IO[12]]
-set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports SH0_IO[7] ]
-set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports SH0_IO[8] ]
-set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports SH0_IO[11]]
-set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports SH0_IO[12]]
-set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports SH0_IO[7] ]
-set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports SH0_IO[8] ]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D0]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D0]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D1]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D1]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D2]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D2]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -min 0  [get_ports QSPI_D3]
+set_output_delay -clock [get_clocks QSPI_CLK_o] -max 20 [get_ports QSPI_D3]
 
-set_false_path -hold -to   [get_ports SH0_IO[11]]
-set_false_path -hold -to   [get_ports SH0_IO[12]]
-set_false_path -hold -to   [get_ports SH0_IO[7] ]
-set_false_path -hold -to   [get_ports SH0_IO[8] ]
+set_false_path -hold -to   [get_ports QSPI_D0 ]
+set_false_path -hold -to   [get_ports QSPI_D1 ]
+set_false_path -hold -to   [get_ports QSPI_D2 ]
+set_false_path -hold -to   [get_ports QSPI_D3 ]
 
-set_false_path -hold -from [get_ports SH0_IO[11]]
-set_false_path -hold -from [get_ports SH0_IO[12]]
-set_false_path -hold -from [get_ports SH0_IO[7] ]
-set_false_path -hold -from [get_ports SH0_IO[8] ]
+set_false_path -hold -from [get_ports QSPI_D0 ]
+set_false_path -hold -from [get_ports QSPI_D1 ]
+set_false_path -hold -from [get_ports QSPI_D2 ]
+set_false_path -hold -from [get_ports QSPI_D3 ]
 
 # -----------------------------------------------------------------------------
 # Chip select
@@ -67,7 +71,7 @@ set_false_path -hold -from [get_ports SH0_IO[8] ]
 # and released well after the last one, so there is no meaningful
 # source-synchronous relationship to constrain. Previously (before 2026-09-28)
 # it was over-constrained as a source-synchronous output alongside the data.
-set_false_path -to [get_ports SH0_IO[10]]
+set_false_path -to [get_ports QSPI_nCS]
 
 #****************************************************************************************
 # Define false paths between async clock groups.
@@ -95,14 +99,14 @@ set_clock_groups -name aclk_grp -asynchronous -group [get_clocks oscclk_0] -grou
 
 # INPUT
 # SETUP, max delay is after rising edge of previous clock
-set_input_delay -clock [get_clocks smbmclk] -max -add_delay 7.000 [get_ports {SMBM_A* SMBM_D* SMBM_nE* SMBM_nBL* SMBM_nOE SMBM_nWE}]
+#3set_input_delay -clock [get_clocks smbmclk] -max -add_delay 7.000 [get_ports {SMBM_A* SMBM_D* SMBM_nE* SMBM_nBL* SMBM_nOE SMBM_nWE}]
 
 # HOLD, min delay is after rising edge of the sample clock
-set_input_delay -clock [get_clocks smbmclk] -min -add_delay 5.000 [get_ports {SMBM_A* SMBM_D* SMBM_nE* SMBM_nBL* SMBM_nOE SMBM_nWE}]
+# set_input_delay -clock [get_clocks smbmclk] -min -add_delay 5.000 [get_ports {SMBM_A* SMBM_D* SMBM_nE* SMBM_nBL* SMBM_nOE SMBM_nWE}]
 
 # OUTPUT
-set_output_delay -clock [get_clocks smbmclk] -max -add_delay 7.000 [get_ports {SMBM_D* SMBM_nWAIT}]
-set_output_delay -clock [get_clocks smbmclk] -min -add_delay 5.000 [get_ports {SMBM_D* SMBM_nWAIT}]
+# set_output_delay -clock [get_clocks smbmclk] -max -add_delay 7.000 [get_ports {SMBM_D* SMBM_nWAIT}]
+# set_output_delay -clock [get_clocks smbmclk] -min -add_delay 5.000 [get_ports {SMBM_D* SMBM_nWAIT}]
 
 ####################################################################################
 # Pin Assigment
@@ -958,10 +962,6 @@ set_property PACKAGE_PIN AU19 [get_ports WDOG_RREQ]
 # set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets iGPUCLK]
 # set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets iMCLK]
 
-set_property PULLUP true [get_ports SH0_IO[11]]
-set_property PULLUP true [get_ports SH0_IO[12]]
-set_property PULLUP true [get_ports SH0_IO[7] ]
-set_property PULLUP true [get_ports SH0_IO[8] ]
 
 # set_property IOSTANDARD SSTL12_DCI [get_ports "c0_ddr4_bg[0]"]
 # set_property OUTPUT_IMPEDANCE RDRV_40_40 [get_ports "c0_ddr4_bg[0]"]
@@ -974,11 +974,11 @@ set_property BITSTREAM.STARTUP.MATCH_CYCLE Auto [current_design]
 set_property BITSTREAM.GENERAL.COMPRESS True [current_design]
 set_property CONFIG_MODE S_SELECTMAP [current_design]
 
-set_input_delay -clock [get_clocks oscclk_0] -min -add_delay 2.800 [get_ports {USER_SW[*]}]
-set_input_delay -clock [get_clocks oscclk_0] -max -add_delay 5.800 [get_ports {USER_SW[*]}]
-set_input_delay -clock [get_clocks oscclk_0] -min -add_delay 2.800 [get_ports {USER_nPB[*]}]
-set_input_delay -clock [get_clocks oscclk_0] -max -add_delay 5.800 [get_ports {USER_nPB[*]}]
-set_input_delay -clock [get_clocks oscclk_0] -min -add_delay 2.800 [get_ports CB_nPOR]
-set_input_delay -clock [get_clocks oscclk_0] -max -add_delay 5.800 [get_ports CB_nPOR]
-set_output_delay -clock [get_clocks oscclk_0] -min -add_delay -1.200 [get_ports {USER_nLED[*]}]
-set_output_delay -clock [get_clocks oscclk_0] -max -add_delay 5.800 [get_ports {USER_nLED[*]}]
+set_input_delay -clock [get_clocks oscclk_1] -min -add_delay 2.800 [get_ports {USER_SW[*]}]
+set_input_delay -clock [get_clocks oscclk_1] -max -add_delay 5.800 [get_ports {USER_SW[*]}]
+set_input_delay -clock [get_clocks oscclk_1] -min -add_delay 2.800 [get_ports {USER_nPB[*]}]
+set_input_delay -clock [get_clocks oscclk_1] -max -add_delay 5.800 [get_ports {USER_nPB[*]}]
+set_input_delay -clock [get_clocks oscclk_1] -min -add_delay 2.800 [get_ports CB_nPOR]
+set_input_delay -clock [get_clocks oscclk_1] -max -add_delay 5.800 [get_ports CB_nPOR]
+set_output_delay -clock [get_clocks oscclk_1] -min -add_delay -1.200 [get_ports {USER_nLED[*]}]
+set_output_delay -clock [get_clocks oscclk_1] -max -add_delay 5.800 [get_ports {USER_nLED[*]}]
