@@ -2,6 +2,10 @@
 
 build
 
+vivado*.log
+vivado*.jou
+vivado*.str
+
 fpga/ARM_MPS3/.Xil
 fpga/ARM_MPS3/vivado_project
 fpga/ARM_MPS3/vivado_*
