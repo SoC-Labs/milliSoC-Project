@@ -16,6 +16,8 @@ module millisoc_fpga_wrapper(
     input  wire [3:0]       UART_RX_F,
     output wire [3:0]       UART_TX_F,
 
+    // LEDs
+    output wire [9:0]       USER_nLED,
 
     // DAP-LITE external signals
     input  wire             CS_nTRST,
@@ -57,6 +59,7 @@ assign CS_TMS = SWDOEN ? SWDO : 1'bz;
 
 millisoc_system u_millisoc(
     .FCLK(OSCCLK[1]),
+    .RT_CLK(OSCCLK[0]), // 24 MHz fixed clock for RT peripherals
     .nPORESET(CB_nPOR),
     .QSPI_SCLK(QSPI_SCLK),
     .QSPI_nCS(QSPI_nCS),

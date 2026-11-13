@@ -47,6 +47,12 @@ set_property target_language Verilog [current_project]
 set_property simulator_language Mixed [current_project]
 
 # ----------------------------
+# Create DDR module
+# ----------------------------
+
+source ./create_ddr.tcl
+
+# ----------------------------
 # Discover RTL sources
 # ----------------------------
 set search_path ./

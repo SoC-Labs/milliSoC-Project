@@ -6,7 +6,7 @@
 | **Scope** | `millisoc_tech` RTL, `millisoc_sdk` firmware/apps, `verif/`, `flows/`, regression and coverage |
 | **DUT** | milliSoC SoC top (`millisoc_tb` → `millisoc_system`) with Cortex-R5, Cortex-M85, PL192 VIC, NIC400, DMA350, QSPI, peripherals, MHU, shared SRAM, Ethos-U85, CoreSight debug |
 | **Last updated** | 2026-11-05 |
-| **Related plans** | `plans/ethos_u85_integration.md`, `plans/millisoc_debug_subsystem.md` |
+| **Related plans** | `plans/ethos_u85_integration.md`, `plans/millisoc_debug_subsystem.md`, `plans/firmware_test_plans.md` |
 
 **Implementation status:** no implementation has started. D1–D8 are accepted
 and incorporated below; Stage 0 remains pending review of this plan.
@@ -837,9 +837,11 @@ and available VCS licences; parallelizable across Stages 1–3.
    `sys_memory_map.h`/`irq_map.h` and aligned `exectb_mcu.h` (D5); completed
    `reset_control`; implemented `bus_access`; extended
    `sram_tests`/`mhu_tests`/`u85_tests`; converted `reset_demo`.
-8. Updated `README.md` current-status section and `plans/README.md` index,
+8. `plans/firmware_test_plans.md` — detailed, board-oriented testcase
+   specifications for the firmware-level IDs in §6.3.
+9. Updated `README.md` current-status section and `plans/README.md` index,
    including the documented 512 KiB shared-SRAM limit and alias behavior (D4).
-9. Local regression/coverage dashboard and sign-off report.
+10. Local regression/coverage dashboard and sign-off report.
 
 ---
 

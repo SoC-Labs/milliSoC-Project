@@ -6,7 +6,7 @@
 #****************************************************************************************
 
 #OSCCLK[0]
-# create_clock -period 41.666 -name oscclk_0 [get_ports {OSCCLK[0]}]
+create_clock -period 41.666 -name oscclk_0 [get_ports {OSCCLK[0]}]
 # #REFCLK24MHZ	24		MHz
 # create_generated_clock -name ref24clk -source [get_pins uBUFG_REFCLK24MHZ/I] -divide_by 1 -add -master_clock oscclk_0 [get_pins uBUFG_REFCLK24MHZ/O]
 
